@@ -3,9 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RIVERLAND</title>
+    <title>RIVERLAND Horario</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+
+        // Tu configuración personal de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyC2dtGCYmr90YAt5cTCd3toNXNziRuLRqM",
+            authDomain: "horarios-river.firebaseapp.com",
+            projectId: "horarios-river",
+            storageBucket: "horarios-river.appspot.com",
+            messagingSenderId: "950389346680",
+            appId: "1:950389346680:web:fe589a8d5e24be0fe1f88d"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        window.firebase = { db, collection, doc, setDoc, onSnapshot, increment };
+    </script>
 
     <style>
         :root {
@@ -20,6 +40,7 @@
         .container { max-width: 1200px; margin: 0 auto; }
         header { text-align: center; margin-bottom: 30px; padding: 20px; background: var(--nord1); border-radius: 10px; border: 1px solid var(--nord3); }
         h1 { font-size: 2.5rem; margin-bottom: 10px; color: var(--nord11); }
+        header p { line-height: 1.5; }
         .day-tabs { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
         .day-tab { padding: 10px 20px; margin: 0 10px 10px; background: var(--nord3); border-radius: 5px; cursor: pointer; }
         .day-tab.active { background: var(--nord7); color: var(--nord0); }
@@ -32,16 +53,11 @@
         .stages-container { margin-left: 60px; display: flex; position: relative; }
         .stage-column { flex: 1; border-left: 1px solid var(--nord3); position: relative; }
         .stage-header { text-align: center; padding: 10px 0; background-color: var(--nord1); position: sticky; top: 0; z-index: 5; transition: background-color 0.3s ease; height: 36px; }
-        
         .time-axis-header { height: 36px; }
 
-        .artist-block {
-            position: absolute; width: 98%; margin-left: 1%; padding: 4px 8px; border-radius: 4px; overflow: hidden;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
-            cursor: pointer; z-index: 2; background-color: var(--nord1); border-left: 6px solid transparent;
-            display: flex; flex-direction: column; justify-content: center;
-        }
-        .artist-block-inner { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%; }
+        .artist-block { position: absolute; width: 98%; margin-left: 1%; padding: 4px 8px; border-radius: 4px; overflow: hidden; transition: all 0.2s ease; z-index: 2; background-color: var(--nord1); border-left: 6px solid transparent; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
+        .artist-block-inner { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+        .artist-details { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .artist-name { font-weight: bold; font-size: 0.9em; }
         .artist-times { font-size: 0.8em; opacity: 0.9; flex-shrink: 0; }
         
@@ -56,8 +72,14 @@
         .stage-col-gallery .stage-header { background-color: rgba(235, 203, 139, 0.15); }
         
         .artist-block.voy { background-color: var(--nord14); }
-        .artist-block.voy .artist-name, .artist-block.voy .artist-times { color: var(--nord0); }
+        .artist-block.voy .artist-name, .artist-block.voy .artist-times, .artist-block.voy .vote-button, .artist-block.voy .vote-counter { color: var(--nord0); }
         .artist-block.conflicts::after { content: '⚠️'; position: absolute; top: 2px; right: 5px; font-size: 1.2em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 5; }
+
+        .vote-area { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+        .vote-button { cursor: pointer; font-size: 1.4rem; color: var(--nord6); transition: color 0.2s, transform 0.2s; }
+        .vote-button.voted { color: var(--nord11); }
+        .vote-button:hover { transform: scale(1.1); }
+        .vote-counter { font-size: 0.9rem; font-weight: bold; min-width: 12px; text-align: center; }
 
         .header-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
         .schedule-button { background-color: var(--nord14); color: var(--nord0); border: none; padding: 12px 25px; font-size: 1rem; font-weight: bold; border-radius: 5px; cursor: pointer; }
@@ -67,12 +89,9 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); animation: fadeIn 0.5s; }
         .modal-content { background-color: var(--nord1); padding: 20px 30px; border: 1px solid var(--nord3); width: 95%; max-width: 900px; border-radius: 10px; position: relative; }
         .close-button { color: var(--nord4); position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
-        
-        /* --- MODIFICACIÓN: Estilos específicos para cada vista del modal --- */
         .modal-content.list-view-active { margin: 5% auto; }
         .modal-content.graphic-view-active { margin: 20px auto; }
         #my-schedule-content.list-view-active { max-height: 60vh; overflow-y: auto; padding-right: 15px; }
-        
         #my-schedule-content .entry { background-color: var(--nord0); padding: 15px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; border-left: 6px solid transparent; }
         #my-schedule-content .entry-details { flex-grow: 1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
         #my-schedule-content .entry-time { font-weight: bold; flex-basis: 120px; }
@@ -81,7 +100,6 @@
         #my-schedule-content .entry-day { width: 100%; font-weight: bold; color: var(--nord11); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--nord3); font-size: 1.3rem; }
         .conflict-icon { display: none; margin-left: 8px; font-size: 1.1em; }
         #my-schedule-content .entry.conflicts .conflict-icon { display: inline; }
-        
         .modal-controls { margin-bottom: 15px; }
         .modal-controls label { margin-right: 10px; }
         .modal-controls select { background-color: var(--nord3); color: var(--nord6); border: 1px solid var(--nord4); padding: 5px; border-radius: 4px; }
@@ -90,16 +108,22 @@
         .modal-time-label { height: 50px; font-size: 0.9em; color: var(--nord4); position: relative; }
         .modal-time-label::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; border-bottom: 1px dashed var(--nord3); }
         .modal-events-area { flex-grow: 1; position: relative; overflow-x: auto; }
-        
-        .modal-event-block {
-            position: absolute; padding: 8px; border-radius: 5px; overflow: hidden;
-            text-align: left; font-size: 0.9em; background-color: var(--nord1);
-            border: 1px solid var(--nord3); box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10;
-            transition: opacity 0.3s ease;
-        }
+        .modal-event-block { position: absolute; padding: 8px; border-radius: 5px; overflow: hidden; text-align: left; font-size: 0.9em; background-color: var(--nord1); border: 1px solid var(--nord3); box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; transition: opacity 0.3s ease; }
         .modal-event-block.conflicts::after { content: '⚠️'; position: absolute; top: 4px; right: 5px; font-size: 1.1em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 15; }
         .modal-event-block.overlapped { opacity: 0.75; }
-
+        
+        #votos { padding: 20px; }
+        .vote-filter-tabs { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .vote-filter-tab { padding: 8px 15px; margin: 0 5px 8px; background: var(--nord3); border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
+        .vote-filter-tab.active { background: var(--nord7); color: var(--nord0); }
+        .vote-entry { display: flex; align-items: center; background-color: var(--nord0); padding: 12px 15px; border-radius: 6px; margin-bottom: 10px; border-left: 5px solid; }
+        .vote-count { font-size: 1.4rem; font-weight: bold; margin-right: 15px; color: var(--nord13); }
+        .vote-details { flex-grow: 1; }
+        .vote-artist { display: flex; align-items: center; font-size: 1.1rem; font-weight: bold; }
+        .vote-time-stage { font-size: 0.9rem; opacity: 0.8; }
+        /* --- MODIFICACIÓN: Estilo para el corazón rojo en la lista de votos --- */
+        .my-vote-icon { color: var(--nord11); font-size: 0.9em; margin-left: 8px; }
+        
         @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
     </style>
 </head>
@@ -107,7 +131,11 @@
     <div class="container">
         <header>
             <h1>RIVERLAND</h1>
-            <p>Planifica tu festival - Los conflictos entre tus seleccionados se marcarán con ⚠️</p>
+            <p>
+                Haz clic en un concierto para añadirlo a <b>tu horario personal</b> (se marcará en verde).<br>
+                Pulsa el corazón ♥️ para <b>votar públicamente</b> por tus favoritos.<br>
+                Los conflictos en tu horario personal se marcarán con ⚠️.
+            </p>
             <div class="header-buttons">
                 <button class="schedule-button" onclick="openMyScheduleList()">Ver Mi Horario (Lista)</button>
                 <button class="schedule-button" onclick="openMyScheduleTimeline()">Ver Mi Horario (Gráfico)</button>
@@ -115,33 +143,20 @@
                 <button class="schedule-button clear-button" onclick="clearMySchedule()">Limpiar Mi Horario</button>
             </div>
         </header>
-        
         <div class="day-tabs">
             <div class="day-tab active" data-day="viernes" onclick="showDay('viernes')">VIERNES</div>
             <div class="day-tab" data-day="sabado" onclick="showDay('sábado')">SÁBADO</div>
             <div class="day-tab" data-day="domingo" onclick="showDay('domingo')">DOMINGO</div>
+            <div class="day-tab" data-day="votos" onclick="showDay('votos')">VOTOS</div>
         </div>
-        
-        <div id="viernes" class="schedule active">
-            <div class="timeline-container" id="timeline-container-viernes"></div>
-        </div>
-        <div id="sabado" class="schedule">
-            <div class="timeline-container" id="timeline-container-sabado"></div>
-        </div>
-        <div id="domingo" class="schedule">
-            <div class="timeline-container" id="timeline-container-domingo"></div>
-        </div>
-    </div>
+        <div id="viernes" class="schedule active"><div class="timeline-container" id="timeline-container-viernes"></div></div>
+        <div id="sabado" class="schedule"><div class="timeline-container" id="timeline-container-sabado"></div></div>
+        <div id="domingo" class="schedule"><div class="timeline-container" id="timeline-container-domingo"></div></div>
+        <div id="votos" class="schedule"></div>
+        <div id="my-schedule-modal" class="modal"><div class="modal-content"><span class="close-button" onclick="closeModal()">&times;</span><h2 id="modal-title">Mi Horario</h2><div id="my-schedule-content"></div></div></div>
+    </body>
 
-    <div id="my-schedule-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-button" onclick="closeModal()">&times;</span>
-            <h2 id="modal-title">Mi Horario</h2>
-            <div id="my-schedule-content"></div>
-        </div>
-    </div>
-
-    <script>
+    <script type="module">
         const txtData = `
 Día;Escenario;Artista;Hora Inicio;Hora Fin;Duración (min);¿VOY?
 VIERNES;EL BOSQUE;RBVENGE & CAOS!;22/08/2024 19:30;22/08/2024 20:10;40;FALSO
@@ -231,44 +246,49 @@ DOMINGO;LA CARPA;AMYGDALA;25/08/2024 5:30;25/08/2024 6:30;60;FALSO
 DOMINGO;EL VALLE;CENCII;25/08/2024 6:00;25/08/2024 7:00;60;FALSO
         `;
         
-        let scheduleData = []; let conflictingEventIds = new Set(); const STAGES = ['EL BOSQUE', 'EL VALLE', 'LA CARPA', 'GALLERY']; const DAY_ORDER = { 'VIERNES': 1, 'SABADO': 2, 'DOMINGO': 3 }; const PIXELS_PER_HOUR = 80; const DAY_START_HOUR = 18; const LOCAL_STORAGE_KEY = 'myFestivalSchedule'; const { jsPDF } = window.jspdf; const MODAL_PIXELS_PER_HOUR = 50;
+        let scheduleData = []; let conflictingEventIds = new Set(); let voteData = {}; let currentVoteFilter = 'TOTAL';
+        const STAGES = ['EL BOSQUE', 'EL VALLE', 'LA CARPA', 'GALLERY']; const DAY_ORDER = { 'VIERNES': 1, 'SABADO': 2, 'DOMINGO': 3 }; const PIXELS_PER_HOUR = 80; const DAY_START_HOUR = 18;
+        const LOCAL_STORAGE_KEY = 'myFestivalSchedule'; const LOCAL_VOTES_KEY = 'myFestivalVotes';
+        const { jsPDF } = window.jspdf; const MODAL_PIXELS_PER_HOUR = 50;
         const normalizeString = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); const parseDate = (dateTimeStr) => { const [datePart, timePart] = dateTimeStr.split(' '); const [day, month, year] = datePart.split('/'); const [hours, minutes] = timePart.split(':'); return new Date(year, month - 1, day, hours, minutes); };
-        document.addEventListener('DOMContentLoaded', () => { let idCounter = 0; scheduleData = txtData.trim().split('\n').slice(1).map(line => { const parts = line.split(';').map(p => p.trim()); if (parts.length < 7) return null; const [day, stage, artist, startTimeStr, endTimeStr, , voyStr] = parts; return { id: idCounter++, day: day.toUpperCase(), stage, artist, startTime: parseDate(startTimeStr), endTime: parseDate(endTimeStr), voy: voyStr === 'VERDADERO' }; }).filter(Boolean); loadMySchedule(); ['viernes', 'sabado', 'domingo'].forEach(generateTimelineView); updateConflictHighlights(); });
-        function generateTimelineView(dayId) { const container = document.getElementById(`timeline-container-${dayId}`); const dayData = scheduleData.filter(e => e.day.toLowerCase() === dayId); if (!dayData.length) { return; } let timeAxisHTML = `<div class="time-axis-header"></div>`; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } const timeAxisContainer = document.createElement('div'); timeAxisContainer.className = 'time-axis'; timeAxisContainer.innerHTML = timeAxisHTML; let stagesContainer = document.createElement('div'); stagesContainer.className = 'stages-container'; stagesContainer.style.height = `${14 * PIXELS_PER_HOUR}px`; STAGES.forEach(stage => { const stageColumn = document.createElement('div'); const stageClassName = `stage-col-${stage.toLowerCase().replace(/ /g, '-')}`; stageColumn.className = `stage-column ${stageClassName}`; stageColumn.innerHTML = `<div class="stage-header">${stage}</div>`; stagesContainer.appendChild(stageColumn); }); container.innerHTML = ''; container.appendChild(timeAxisContainer); container.appendChild(stagesContainer); const dayStartDate = new Date(dayData[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); STAGES.forEach((stage, stageIndex) => { const stageColumn = container.querySelectorAll('.stage-column')[stageIndex]; const stageEvents = dayData.filter(e => e.stage === stage).sort((a,b) => a.startTime - b.startTime); stageEvents.forEach(event => { const top = ((event.startTime - dayStartDate) / 3600000) * PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * PIXELS_PER_HOUR; const block = document.createElement('div'); block.className = `artist-block stage-${event.stage.toLowerCase().replace(/ /g, '-')}`; if (event.voy) block.classList.add('voy'); block.dataset.eventId = event.id; block.style.cssText = `top:${top}px; height:${height}px;`; block.onclick = () => toggleVoy(block); block.innerHTML = `<div class="artist-block-inner"><span class="artist-name">${event.artist}</span><span class="artist-times">${event.startTime.toTimeString().substring(0,5)}-${event.endTime.toTimeString().substring(0,5)}</span></div>`; stageColumn.appendChild(block); }); }); }
-        function toggleVoy(blockEl) { const event = scheduleData.find(e => e.id === +blockEl.dataset.eventId); if (event) { event.voy = !event.voy; blockEl.classList.toggle('voy'); updateConflictHighlights(); saveMySchedule(); } }
-        function saveMySchedule() { const myVoyEventIds = scheduleData.filter(event => event.voy).map(event => event.id); localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(myVoyEventIds)); }
-        function loadMySchedule() { const savedData = localStorage.getItem(LOCAL_STORAGE_KEY); if (savedData) { const savedIds = new Set(JSON.parse(savedData)); scheduleData.forEach(event => { event.voy = savedIds.has(event.id); }); } }
-        function clearMySchedule() { if (confirm('¿Estás seguro de que quieres eliminar todas tus selecciones? Esta acción no se puede deshacer.')) { scheduleData.forEach(event => event.voy = false); document.querySelectorAll('.artist-block.voy').forEach(block => block.classList.remove('voy')); updateConflictHighlights(); saveMySchedule(); } }
-        function downloadSchedulePDF() { const myEvents = scheduleData.filter(e => e.voy).sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); if (myEvents.length === 0) { alert("No has seleccionado ningún concierto para descargar."); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageHeight = doc.internal.pageSize.height; const pageWidth = doc.internal.pageSize.width; const margin = 15; let y = margin + 10; let currentDay = ''; const stageColors = { 'EL BOSQUE': '#8FBCBB', 'EL VALLE': '#B48EAD', 'LA CARPA': '#D08770', 'GALLERY': '#EBCB8B' }; const conflictColor = '#BF616A'; doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('Mi Horario del Festival', pageWidth / 2, margin, { align: 'center' }); y += 10; myEvents.forEach(event => { if (y > pageHeight - margin) { doc.addPage(); y = margin; } if(event.day !== currentDay) { currentDay = event.day; y += 10; if (y > pageHeight - margin) { doc.addPage(); y = margin; } doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text(currentDay, margin, y); y += 7; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 8; } const timeStr = `${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}`; let artistStr = event.artist; const stageStr = event.stage; const isConflict = conflictingEventIds.has(event.id); doc.setFontSize(11); const color = stageColors[event.stage] || '#4C566A'; doc.setFillColor(color); doc.rect(margin, y - 4, 3, 6, 'F'); doc.setFont('helvetica', 'bold'); doc.text(timeStr, margin + 5, y); if (isConflict) { artistStr = '[!] ' + artistStr; doc.setTextColor(conflictColor); } else { doc.setTextColor(0, 0, 0); } doc.setFont('helvetica', 'normal'); doc.text(artistStr, margin + 40, y); doc.setTextColor(0, 0, 0); doc.setTextColor(100); doc.text(stageStr, pageWidth - margin, y, { align: 'right' }); doc.setTextColor(0); y += 10; }); doc.save('mi_horario_festival.pdf'); }
         
-        const modal = document.getElementById('my-schedule-modal'), modalContentEl = modal.querySelector('.modal-content'), modalTitle = document.getElementById('modal-title'), modalContent = document.getElementById('my-schedule-content');
-        
-        const openMyScheduleList = () => {
-            openModal('Mi Horario (Lista)', generateListHTML);
-            modalContentEl.classList.remove('graphic-view-active');
-            modalContentEl.classList.add('list-view-active');
-            modalContent.classList.add('list-view-active');
-        };
-        const openMyScheduleTimeline = () => {
-            openModal('Mi Horario (Gráfico)', generateTimelineHTML);
-            modalContentEl.classList.remove('list-view-active');
-            modalContentEl.classList.add('graphic-view-active');
-            modalContent.classList.remove('list-view-active');
-        };
-        const closeModal = () => {
-            modal.style.display = 'none';
-            modalContentEl.classList.remove('list-view-active', 'graphic-view-active');
-            modalContent.classList.remove('list-view-active');
-        };
-        window.onclick = e => { if (e.target == modal) closeModal(); };
+        document.addEventListener('DOMContentLoaded', () => { let idCounter = 0; scheduleData = txtData.trim().split('\n').slice(1).map(line => { const parts = line.split(';').map(p => p.trim()); if (parts.length < 7) return null; const [day, stage, artist, startTimeStr, endTimeStr, , ] = parts; return { id: idCounter++, day: day.toUpperCase(), stage, artist, startTime: parseDate(startTimeStr), endTime: parseDate(endTimeStr), voy: false }; }).filter(Boolean); loadMySchedule(); ['viernes', 'sabado', 'domingo'].forEach(generateTimelineView); listenForVotes(); });
 
-        function openModal(title, contentGenerator) { const myEvents = scheduleData.filter(e => e.voy); modalTitle.textContent = title; let content = myEvents.length === 0 ? '<p>No has seleccionado ningún concierto.</p>' : contentGenerator(myEvents); if (myEvents.length > 0 && conflictingEventIds.size > 0) { content += '<p class="modal-legend" style="text-align:center; margin-top:15px; font-size:0.9em;">⚠️ Indica un conflicto de horario con otro concierto seleccionado.</p>'; } modalContent.innerHTML = content; modal.style.display = 'block'; }
+        function generateTimelineView(dayId) { const container = document.getElementById(`timeline-container-${dayId}`); const dayData = scheduleData.filter(e => e.day.toLowerCase() === dayId); if (!dayData.length) { return; } let timeAxisHTML = `<div class="time-axis-header"></div>`; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } const timeAxisContainer = document.createElement('div'); timeAxisContainer.className = 'time-axis'; timeAxisContainer.innerHTML = timeAxisHTML; let stagesContainer = document.createElement('div'); stagesContainer.className = 'stages-container'; stagesContainer.style.height = `${14 * PIXELS_PER_HOUR}px`; STAGES.forEach(stage => { const stageColumn = document.createElement('div'); const stageClassName = `stage-col-${stage.toLowerCase().replace(/ /g, '-')}`; stageColumn.className = `stage-column ${stageClassName}`; stageColumn.innerHTML = `<div class="stage-header">${stage}</div>`; stagesContainer.appendChild(stageColumn); }); container.innerHTML = ''; container.appendChild(timeAxisContainer); container.appendChild(stagesContainer); const dayStartDate = new Date(dayData[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const myVotes = getMyVotes(); STAGES.forEach((stage, stageIndex) => { const stageColumn = container.querySelectorAll('.stage-column')[stageIndex]; const stageEvents = dayData.filter(e => e.stage === stage).sort((a, b) => a.startTime - b.startTime); stageEvents.forEach(event => { const top = ((event.startTime - dayStartDate) / 3600000) * PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * PIXELS_PER_HOUR; const block = document.createElement('div'); block.className = `artist-block stage-${event.stage.toLowerCase().replace(/ /g, '-')}`; if (event.voy) block.classList.add('voy'); block.dataset.eventId = event.id; block.style.cssText = `top:${top}px; height:${height}px;`; const hasVoted = myVotes.has(String(event.id)); 
+        block.setAttribute('onclick', 'window.toggleVoy(this)');
+        block.innerHTML = ` <div class="artist-block-inner"> <div class="artist-details"> <span class="artist-name">${event.artist}</span> <span class="artist-times">${event.startTime.toTimeString().substring(0,5)}-${event.endTime.toTimeString().substring(0,5)}</span> </div> <div class="vote-area"> <span class="vote-button ${hasVoted ? 'voted' : ''}" onclick="event.stopPropagation(); window.toggleVote(this, ${event.id})">${hasVoted ? '♥' : '♡'}</span> <span class="vote-counter" id="vote-count-${event.id}">0</span> </div> </div>`; 
+        stageColumn.appendChild(block); }); }); }
+        
+        function getMyVotes() { return new Set(JSON.parse(localStorage.getItem(LOCAL_VOTES_KEY) || '[]')); }
+        function saveMyVotes(votesSet) { localStorage.setItem(LOCAL_VOTES_KEY, JSON.stringify([...votesSet])); }
+        async function toggleVote(buttonEl, eventId) { const event = scheduleData.find(e => e.id === eventId); if (!event) return; const myVotes = getMyVotes(); const hasVoted = myVotes.has(String(eventId)); const { db, doc, setDoc, increment } = window.firebase; const docRef = doc(db, "concert_votes", String(eventId)); const incrementValue = hasVoted ? -1 : 1; if (hasVoted) { myVotes.delete(String(eventId)); } else { myVotes.add(String(eventId)); } saveMyVotes(myVotes); buttonEl.classList.toggle('voted', !hasVoted); buttonEl.innerHTML = !hasVoted ? '♥' : '♡'; try { await setDoc(docRef, { artist: event.artist, stage: event.stage, day: event.day, startTime: event.startTime, vote_count: increment(incrementValue) }, { merge: true }); } catch (error) { console.error("Error al actualizar el voto: ", error); } }
+        function listenForVotes() { const { db, collection, onSnapshot } = window.firebase; onSnapshot(collection(db, "concert_votes"), (snapshot) => { snapshot.forEach(doc => { voteData[doc.id] = doc.data(); const counterEl = document.getElementById(`vote-count-${doc.id}`); if (counterEl) counterEl.innerText = doc.data().vote_count || 0; }); renderVotesTab(); }); }
+        function setVoteFilter(filter) { currentVoteFilter = filter; renderVotesTab(); }
+        function renderVotesTab() { const container = document.getElementById('votos'); const filters = ['TOTAL', 'VIERNES', 'SABADO', 'DOMINGO']; const tabsHTML = `<div class="vote-filter-tabs">${filters.map(f => `<div class="vote-filter-tab ${currentVoteFilter === f ? 'active' : ''}" onclick="window.setVoteFilter('${f}')">${f === 'TOTAL' ? 'TOTALES' : f}</div>`).join('')}</div>`; let votesToDisplay = Object.entries(voteData); if (currentVoteFilter !== 'TOTAL') { votesToDisplay = votesToDisplay.filter(([id, vote]) => vote.day === currentVoteFilter); } const sortedVotes = votesToDisplay.filter(([id, vote]) => vote.vote_count > 0).sort(([, a], [, b]) => b.vote_count - a.vote_count); let listHTML; if (sortedVotes.length === 0) { listHTML = '<p style="text-align:center;">No hay votos para mostrar en esta vista.</p>'; } else { const stageColors = {'EL BOSQUE': 'var(--nord7)', 'EL VALLE': 'var(--nord15)', 'LA CARPA': 'var(--nord12)', 'GALLERY': 'var(--nord13)'}; const myVotes = getMyVotes(); listHTML = sortedVotes.map(([eventId, vote]) => { const time = vote.startTime.toDate(); const timeStr = time.toTimeString().substring(0,5); const userHasVoted = myVotes.has(eventId); const myVoteIcon = userHasVoted ? '<span class="my-vote-icon">♥</span>' : ''; return `<div class="vote-entry" style="border-left-color: ${stageColors[vote.stage] || 'var(--nord3)'};"><div class="vote-count">${vote.vote_count}</div><div class="vote-details"><div class="vote-artist">${vote.artist} ${myVoteIcon}</div><div class="vote-time-stage">${vote.day} a las ${timeStr} - ${vote.stage}</div></div></div>`; }).join(''); } container.innerHTML = tabsHTML + listHTML; }
+        function toggleVoy(blockEl) { const event = scheduleData.find(e => e.id === +blockEl.dataset.eventId); if (event) { event.voy = !event.voy; blockEl.classList.toggle('voy'); saveMySchedule(); updateConflictHighlights(); } }
+        function saveMySchedule() { const myVoyEventIds = scheduleData.filter(event => event.voy).map(event => event.id); localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(myVoyEventIds)); }
+        function loadMySchedule() { const savedData = localStorage.getItem(LOCAL_STORAGE_KEY); if (!savedData) return; const savedIds = new Set(JSON.parse(savedData)); scheduleData.forEach(event => event.voy = savedIds.has(event.id)); updateConflictHighlights(); }
+        function clearMySchedule() { if (confirm('¿Estás seguro de que quieres eliminar tus selecciones personales? Esto NO afectará a los votos públicos.')) { scheduleData.forEach(event => event.voy = false); document.querySelectorAll('.artist-block.voy').forEach(block => block.classList.remove('voy')); updateConflictHighlights(); saveMySchedule(); } }
         function updateConflictHighlights() { conflictingEventIds.clear(); const myEvents = scheduleData.filter(e => e.voy); for (let i = 0; i < myEvents.length; i++) { for (let j = i + 1; j < myEvents.length; j++) { const eventA = myEvents[i], eventB = myEvents[j]; if (eventA.startTime < eventB.endTime && eventA.endTime > eventB.startTime) { conflictingEventIds.add(eventA.id); conflictingEventIds.add(eventB.id); } } } document.querySelectorAll('.artist-block').forEach(block => { block.classList.toggle('conflicts', conflictingEventIds.has(+block.dataset.eventId)); }); }
         function showDay(day) { const normalizedDay = normalizeString(day); document.querySelectorAll('.schedule').forEach(s => s.classList.remove('active')); document.getElementById(normalizedDay).classList.add('active'); document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', normalizeString(t.dataset.day) === normalizedDay)); }
-        const getCssVarForStage = stage => ({'EL BOSQUE': '--nord7', 'EL VALLE': '--nord15', 'LA CARPA': '--nord12', 'GALLERY': '--nord13'}[stage]);
-        function generateListHTML(myEvents) { myEvents.sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); let currentDay = ''; return myEvents.map(event => { const dayHeader = event.day !== currentDay ? `<div class="entry-day">${currentDay = event.day}</div>` : ''; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; return `${dayHeader}<div class="entry ${conflictClass}" style="border-left-color: var(${getCssVarForStage(event.stage)})"> <div class="entry-details"> <div class="entry-time">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</div> <div class="entry-artist">${event.artist}<span class="conflict-icon">⚠️</span></div> <div class="entry-stage">${event.stage}</div> </div> </div>`; }).join(''); }
-        function generateTimelineHTML(myEvents) { const eventsByDay = myEvents.reduce((acc, event) => { (acc[event.day] = acc[event.day] || []).push(event); return acc; }, {}); const sortedDays = Object.keys(eventsByDay).sort((a,b) => DAY_ORDER[a] - DAY_ORDER[b]); if (sortedDays.length === 0) return ''; let selectorHTML = `<div class="modal-controls"><label for="day-selector">Selecciona un día:</label> <select id="day-selector" onchange="renderModalTimelineForDay(this.value)">`; sortedDays.forEach(day => { selectorHTML += `<option value="${day}">${day}</option>`; }); selectorHTML += `</select></div><div id="modal-timeline-content"></div>`; setTimeout(() => { if (sortedDays.length > 0) renderModalTimelineForDay(sortedDays[0]); }, 0); return selectorHTML; }
-        function renderModalTimelineForDay(day) { const contentContainer = document.getElementById('modal-timeline-content'); const dayEvents = scheduleData.filter(e => e.voy && e.day === day); if (!dayEvents.length) { contentContainer.innerHTML = "<p>No tienes conciertos seleccionados para este día.</p>"; return; } let timeAxisHTML = ''; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="modal-time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } dayEvents.sort((a, b) => a.startTime - b.startTime); const columns = []; dayEvents.forEach(event => { let placed = false; for (let i = 0; i < columns.length; i++) { if (columns[i].every(e => event.startTime >= e.endTime || event.endTime <= e.startTime)) { columns[i].push(event); event.column = i; placed = true; break; } } if (!placed) { event.column = columns.length; columns.push([event]); } }); const dayStartDate = new Date(dayEvents[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const eventBlocks = dayEvents.map(event => { const top = ((event.startTime - dayStartDate) / 3600000) * MODAL_PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * MODAL_PIXELS_PER_HOUR; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; const stageColorVar = getCssVarForStage(event.stage); const indentStep = 12; const baseWidth = 95; const left = event.column * indentStep; const width = baseWidth - left; const overlapClass = event.column > 0 ? 'overlapped' : ''; return `<div class="modal-event-block ${conflictClass} ${overlapClass}" style="top:${top}px; height:${height}px; width:${width}%; left:${left}%; z-index:${10 + event.column}; background-color: var(${stageColorVar});"> <span class="artist-name">${event.artist}</span> <span class="artist-times">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</span> </div>`; }).join(''); contentContainer.innerHTML = `<div class="modal-timeline-wrapper"><div class="modal-time-axis">${timeAxisHTML}</div><div class="modal-events-area" style="min-height:${14 * MODAL_PIXELS_PER_HOUR}px"><div class="modal-events-container" style="position:relative; height:100%">${eventBlocks}</div></div></div>`; }
+        const { getCssVarForStage, generateListHTML, generateTimelineHTML, renderModalTimelineForDay, downloadSchedulePDF, openModal, closeModal, openMyScheduleList, openMyScheduleTimeline } = (() => {
+            const modal = document.getElementById('my-schedule-modal'), modalContentEl = modal.querySelector('.modal-content'), modalTitle = document.getElementById('modal-title'), modalContent = document.getElementById('my-schedule-content');
+            const getCssVarForStage = stage => ({'EL BOSQUE': '--nord7', 'EL VALLE': '--nord15', 'LA CARPA': '--nord12', 'GALLERY': '--nord13'}[stage]);
+            const generateListHTML = (myEvents) => { myEvents.sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); let currentDay = ''; return myEvents.map(event => { const dayHeader = event.day !== currentDay ? `<div class="entry-day">${currentDay = event.day}</div>` : ''; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; return `<div class="entry ${conflictClass}" style="border-left-color: var(${getCssVarForStage(event.stage)})"><div class="entry-details"><div class="entry-time">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</div><div class="entry-artist">${event.artist}<span class="conflict-icon">⚠️</span></div><div class="entry-stage">${event.stage}</div></div></div>`; }).join(''); }
+            const renderModalTimelineForDay = (day) => { const contentContainer = document.getElementById('modal-timeline-content'); const dayEvents = scheduleData.filter(e => e.voy && e.day === day); if (!dayEvents.length) { contentContainer.innerHTML = "<p>No tienes conciertos seleccionados para este día.</p>"; return; } let timeAxisHTML = ''; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="modal-time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } dayEvents.sort((a, b) => a.startTime - b.startTime); const columns = []; dayEvents.forEach(event => { let placed = false; for (let i = 0; i < columns.length; i++) { if (columns[i].every(e => event.startTime >= e.endTime || event.endTime <= e.startTime)) { columns[i].push(event); event.column = i; placed = true; break; } } if (!placed) { event.column = columns.length; columns.push([event]); } }); const dayStartDate = new Date(dayEvents[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const eventBlocks = dayEvents.map(event => { const top = ((event.startTime - dayStartDate) / 3600000) * MODAL_PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * MODAL_PIXELS_PER_HOUR; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; const stageColorVar = getCssVarForStage(event.stage); const indentStep = 12; const baseWidth = 95; const left = event.column * indentStep; const width = baseWidth - left; const overlapClass = event.column > 0 ? 'overlapped' : ''; return `<div class="modal-event-block ${conflictClass} ${overlapClass}" style="top:${top}px; height:${height}px; width:${width}%; left:${left}%; z-index:${10 + event.column}; background-color: var(${stageColorVar});"><span class="artist-name">${event.artist}</span><span class="artist-times">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</span></div>`; }).join(''); contentContainer.innerHTML = `<div class="modal-timeline-wrapper"><div class="modal-time-axis">${timeAxisHTML}</div><div class="modal-events-area" style="min-height:${14 * MODAL_PIXELS_PER_HOUR}px"><div class="modal-events-container" style="position:relative; height:100%">${eventBlocks}</div></div></div>`; }
+            const generateTimelineHTML = (myEvents) => { const eventsByDay = myEvents.reduce((acc, event) => { (acc[event.day] = acc[event.day] || []).push(event); return acc; }, {}); const sortedDays = Object.keys(eventsByDay).sort((a,b) => DAY_ORDER[a] - DAY_ORDER[b]); if (sortedDays.length === 0) return ''; let selectorHTML = `<div class="modal-controls"><label for="day-selector">Selecciona un día:</label><select id="day-selector" onchange="window.renderModalTimelineForDay(this.value)">`; sortedDays.forEach(day => { selectorHTML += `<option value="${day}">${day}</option>`; }); selectorHTML += `</select></div><div id="modal-timeline-content"></div>`; setTimeout(() => { if (sortedDays.length > 0) renderModalTimelineForDay(sortedDays[0]); }, 0); return selectorHTML; }
+            const downloadSchedulePDF = () => { const myEvents = scheduleData.filter(e => e.voy).sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); if (myEvents.length === 0) { alert("No has seleccionado ningún concierto en 'Mi Horario' para descargar."); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageHeight = doc.internal.pageSize.height; const pageWidth = doc.internal.pageSize.width; const margin = 15; let y = margin + 10; let currentDay = ''; const stageColors = { 'EL BOSQUE': '#8FBCBB', 'EL VALLE': '#B48EAD', 'LA CARPA': '#D08770', 'GALLERY': '#EBCB8B' }; const conflictColor = '#BF616A'; doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('Mi Horario Personal del Festival', pageWidth / 2, margin, { align: 'center' }); y += 10; myEvents.forEach(event => { if (y > pageHeight - margin) { doc.addPage(); y = margin; } if(event.day !== currentDay) { currentDay = event.day; y += 10; if (y > pageHeight - margin) { doc.addPage(); y = margin; } doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text(currentDay, margin, y); y += 7; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 8; } const timeStr = `${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}`; let artistStr = event.artist; const stageStr = event.stage; const isConflict = conflictingEventIds.has(event.id); doc.setFontSize(11); const color = stageColors[event.stage] || '#4C566A'; doc.setFillColor(color); doc.rect(margin, y - 4, 3, 6, 'F'); doc.setFont('helvetica', 'bold'); doc.text(timeStr, margin + 5, y); if (isConflict) { artistStr = '[!] ' + artistStr; doc.setTextColor(conflictColor); } else { doc.setTextColor(0, 0, 0); } doc.setFont('helvetica', 'normal'); doc.text(artistStr, margin + 40, y); doc.setTextColor(0, 0, 0); doc.setTextColor(100); doc.text(stageStr, pageWidth - margin, y, { align: 'right' }); doc.setTextColor(0); y += 10; }); doc.save('mi_horario_personal.pdf'); }
+            const openModal = (title, contentGenerator) => { const myEvents = scheduleData.filter(e => e.voy); modalTitle.textContent = title; let content = myEvents.length === 0 ? '<p>No has añadido conciertos a tu horario personal.</p>' : contentGenerator(myEvents); if (myEvents.length > 0 && conflictingEventIds.size > 0) { content += '<p class="modal-legend" style="text-align:center; margin-top:15px; font-size:0.9em;">⚠️ Indica un conflicto de horario con otro concierto seleccionado.</p>'; } modalContent.innerHTML = content; modal.style.display = 'block'; }
+            const closeModal = () => { modal.style.display = 'none'; modalContentEl.classList.remove('list-view-active', 'graphic-view-active'); modalContent.classList.remove('list-view-active'); };
+            window.onclick = e => { if (e.target == modal) closeModal(); };
+            const openMyScheduleList = () => { openModal('Mi Horario (Lista)', generateListHTML); modalContentEl.classList.remove('graphic-view-active'); modalContentEl.classList.add('list-view-active'); modalContent.classList.add('list-view-active'); };
+            const openMyScheduleTimeline = () => { openModal('Mi Horario (Gráfico)', generateTimelineHTML); modalContentEl.classList.remove('list-view-active'); modalContentEl.classList.add('graphic-view-active'); modalContent.classList.remove('list-view-active'); };
+            return { getCssVarForStage, generateListHTML, generateTimelineHTML, renderModalTimelineForDay, downloadSchedulePDF, openModal, closeModal, openMyScheduleList, openMyScheduleTimeline };
+        })();
+        Object.assign(window, {
+            showDay, toggleVoy, toggleVote, clearMySchedule, setVoteFilter,
+            openMyScheduleList, openMyScheduleTimeline, downloadSchedulePDF, closeModal,
+            renderModalTimelineForDay
+        });
     </script>
-</body>
 </html>
