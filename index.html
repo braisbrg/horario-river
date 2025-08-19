@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RIVERLAND</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --nord0: #2E3440; --nord1: #3B4252; --nord3: #4C566A;
+            --nord4: #D8DEE9; --nord6: #ECEFF4; --nord7: #8FBCBB;
+            --nord10: #5E81AC; --nord11: #BF616A; --nord14: #A3BE8C;
+            --nord15: #B48EAD; --nord13: #EBCB8B; --nord12: #D08770;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--nord0); color: var(--nord6); padding: 20px; line-height: 1.2; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { text-align: center; margin-bottom: 30px; padding: 20px; background: var(--nord1); border-radius: 10px; border: 1px solid var(--nord3); }
+        h1 { font-size: 2.5rem; margin-bottom: 10px; color: var(--nord11); }
+        .day-tabs { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .day-tab { padding: 10px 20px; margin: 0 10px 10px; background: var(--nord3); border-radius: 5px; cursor: pointer; }
+        .day-tab.active { background: var(--nord7); color: var(--nord0); }
+        
+        .schedule { display: none; background: var(--nord1); border-radius: 10px; border: 1px solid var(--nord3); margin-bottom: 30px; }
+        .schedule.active { display: block; }
+        .timeline-container { position: relative; }
+        .time-axis { float: left; width: 60px; }
+        .time-axis .time-label { height: 80px; font-size: 0.9em; color: var(--nord4); text-align: right; padding-right: 10px; border-top: 1px solid var(--nord3); }
+        .stages-container { margin-left: 60px; display: flex; position: relative; }
+        .stage-column { flex: 1; border-left: 1px solid var(--nord3); position: relative; }
+        .stage-header { text-align: center; padding: 10px 0; background-color: var(--nord1); position: sticky; top: 0; z-index: 5; transition: background-color 0.3s ease; height: 36px; }
+        
+        .time-axis-header { height: 36px; }
+
+        .artist-block {
+            position: absolute; width: 98%; margin-left: 1%; padding: 4px 8px; border-radius: 4px; overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;
+            cursor: pointer; z-index: 2; background-color: var(--nord1); border-left: 6px solid transparent;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+        .artist-block-inner { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%; }
+        .artist-name { font-weight: bold; font-size: 0.9em; }
+        .artist-times { font-size: 0.8em; opacity: 0.9; flex-shrink: 0; }
+        
+        .artist-block.stage-el-bosque { border-left-color: var(--nord7); background-color: rgba(143, 188, 187, 0.15); }
+        .artist-block.stage-el-valle { border-left-color: var(--nord15); background-color: rgba(180, 142, 173, 0.15); }
+        .artist-block.stage-la-carpa { border-left-color: var(--nord12); background-color: rgba(208, 135, 112, 0.15); }
+        .artist-block.stage-gallery { border-left-color: var(--nord13); background-color: rgba(235, 203, 139, 0.15); }
+
+        .stage-col-el-bosque .stage-header { background-color: rgba(143, 188, 187, 0.15); }
+        .stage-col-el-valle .stage-header { background-color: rgba(180, 142, 173, 0.15); }
+        .stage-col-la-carpa .stage-header { background-color: rgba(208, 135, 112, 0.15); }
+        .stage-col-gallery .stage-header { background-color: rgba(235, 203, 139, 0.15); }
+        
+        .artist-block.voy { background-color: var(--nord14); }
+        .artist-block.voy .artist-name, .artist-block.voy .artist-times { color: var(--nord0); }
+        .artist-block.conflicts::after { content: '⚠️'; position: absolute; top: 2px; right: 5px; font-size: 1.2em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 5; }
+
+        .header-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .schedule-button { background-color: var(--nord14); color: var(--nord0); border: none; padding: 12px 25px; font-size: 1rem; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .clear-button { background-color: var(--nord11); }
+        .pdf-button { background-color: var(--nord10); color: var(--nord6) }
+        
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); animation: fadeIn 0.5s; }
+        .modal-content { background-color: var(--nord1); padding: 20px 30px; border: 1px solid var(--nord3); width: 95%; max-width: 900px; border-radius: 10px; position: relative; }
+        .close-button { color: var(--nord4); position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        
+        /* --- MODIFICACIÓN: Estilos específicos para cada vista del modal --- */
+        .modal-content.list-view-active { margin: 5% auto; }
+        .modal-content.graphic-view-active { margin: 20px auto; }
+        #my-schedule-content.list-view-active { max-height: 60vh; overflow-y: auto; padding-right: 15px; }
+        
+        #my-schedule-content .entry { background-color: var(--nord0); padding: 15px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; border-left: 6px solid transparent; }
+        #my-schedule-content .entry-details { flex-grow: 1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+        #my-schedule-content .entry-time { font-weight: bold; flex-basis: 120px; }
+        #my-schedule-content .entry-artist { flex-grow: 1; font-size: 1.1rem; display: flex; align-items: center; }
+        #my-schedule-content .entry-stage { background: var(--nord3); padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }
+        #my-schedule-content .entry-day { width: 100%; font-weight: bold; color: var(--nord11); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--nord3); font-size: 1.3rem; }
+        .conflict-icon { display: none; margin-left: 8px; font-size: 1.1em; }
+        #my-schedule-content .entry.conflicts .conflict-icon { display: inline; }
+        
+        .modal-controls { margin-bottom: 15px; }
+        .modal-controls label { margin-right: 10px; }
+        .modal-controls select { background-color: var(--nord3); color: var(--nord6); border: 1px solid var(--nord4); padding: 5px; border-radius: 4px; }
+        .modal-timeline-wrapper { display: flex; overflow-x: hidden; }
+        .modal-time-axis { flex-shrink: 0; padding-right: 10px; }
+        .modal-time-label { height: 50px; font-size: 0.9em; color: var(--nord4); position: relative; }
+        .modal-time-label::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; border-bottom: 1px dashed var(--nord3); }
+        .modal-events-area { flex-grow: 1; position: relative; overflow-x: auto; }
+        
+        .modal-event-block {
+            position: absolute; padding: 8px; border-radius: 5px; overflow: hidden;
+            text-align: left; font-size: 0.9em; background-color: var(--nord1);
+            border: 1px solid var(--nord3); box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10;
+            transition: opacity 0.3s ease;
+        }
+        .modal-event-block.conflicts::after { content: '⚠️'; position: absolute; top: 4px; right: 5px; font-size: 1.1em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 15; }
+        .modal-event-block.overlapped { opacity: 0.75; }
+
+        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>RIVERLAND</h1>
+            <p>Planifica tu festival - Los conflictos entre tus seleccionados se marcarán con ⚠️</p>
+            <div class="header-buttons">
+                <button class="schedule-button" onclick="openMyScheduleList()">Ver Mi Horario (Lista)</button>
+                <button class="schedule-button" onclick="openMyScheduleTimeline()">Ver Mi Horario (Gráfico)</button>
+                <button class="schedule-button pdf-button" onclick="downloadSchedulePDF()">Descargar PDF</button>
+                <button class="schedule-button clear-button" onclick="clearMySchedule()">Limpiar Mi Horario</button>
+            </div>
+        </header>
+        
+        <div class="day-tabs">
+            <div class="day-tab active" data-day="viernes" onclick="showDay('viernes')">VIERNES</div>
+            <div class="day-tab" data-day="sabado" onclick="showDay('sábado')">SÁBADO</div>
+            <div class="day-tab" data-day="domingo" onclick="showDay('domingo')">DOMINGO</div>
+        </div>
+        
+        <div id="viernes" class="schedule active">
+            <div class="timeline-container" id="timeline-container-viernes"></div>
+        </div>
+        <div id="sabado" class="schedule">
+            <div class="timeline-container" id="timeline-container-sabado"></div>
+        </div>
+        <div id="domingo" class="schedule">
+            <div class="timeline-container" id="timeline-container-domingo"></div>
+        </div>
+    </div>
+
+    <div id="my-schedule-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">Mi Horario</h2>
+            <div id="my-schedule-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const txtData = `
+Día;Escenario;Artista;Hora Inicio;Hora Fin;Duración (min);¿VOY?
+VIERNES;EL BOSQUE;RBVENGE & CAOS!;22/08/2024 19:30;22/08/2024 20:10;40;FALSO
+VIERNES;EL VALLE;G LA SOSITA;22/08/2024 19:40;22/08/2024 20:05;25;FALSO
+VIERNES;EL VALLE;WEST SRK;22/08/2024 20:15;22/08/2024 20:45;30;VERDADERO
+VIERNES;GALLERY;SECRET 20:10;22/08/2024 20:10;22/08/2024 20:25;15;FALSO
+VIERNES;EL BOSQUE;BIBERON;22/08/2024 20:30;22/08/2024 21:00;30;FALSO
+VIERNES;EL VALLE;ODDLIQUOR;22/08/2024 21:00;22/08/2024 22:00;60;VERDADERO
+VIERNES;EL BOSQUE;XIYO & FERNANDEZZ;22/08/2024 21:30;22/08/2024 22:30;60;FALSO
+VIERNES;EL VALLE;MUSHKAA;22/08/2024 22:30;22/08/2024 23:30;60;VERDADERO
+VIERNES;GALLERY;SECRET 22:40;22/08/2024 22:40;22/08/2024 22:55;15;FALSO
+VIERNES;EL BOSQUE;NSQK;22/08/2024 23:00;23/08/2024 0:00;60;FALSO
+VIERNES;LA CARPA;TURROBABY;22/08/2024 23:30;23/08/2024 0:25;55;FALSO
+VIERNES;EL VALLE;JUDELINE;23/08/2024 0:00;23/08/2024 1:00;60;VERDADERO
+VIERNES;EL BOSQUE;LOVE YI;23/08/2024 0:30;23/08/2024 1:30;60;FALSO
+VIERNES;LA CARPA;ZELL;23/08/2024 0:30;23/08/2024 1:25;55;FALSO
+VIERNES;EL VALLE;RALPHIE CHOO;23/08/2024 1:30;23/08/2024 2:30;60;VERDADERO
+VIERNES;LA CARPA;SWAGGERBOYZ;23/08/2024 1:30;23/08/2024 2:25;55;FALSO
+VIERNES;EL BOSQUE;LA BLACKIE;23/08/2024 2:00;23/08/2024 3:00;60;FALSO
+VIERNES;LA CARPA;LORNA;23/08/2024 2:30;23/08/2024 3:25;55;FALSO
+VIERNES;EL VALLE;ROJUU;23/08/2024 3:00;23/08/2024 4:00;60;VERDADERO
+VIERNES;EL BOSQUE;GUXO;23/08/2024 3:30;23/08/2024 4:30;60;FALSO
+VIERNES;LA CARPA;LOS XAVALES;23/08/2024 3:30;23/08/2024 4:30;60;VERDADERO
+VIERNES;EL VALLE;SELECTA;23/08/2024 4:10;23/08/2024 5:30;80;VERDADERO
+VIERNES;LA CARPA;LAS VERDUNCH;23/08/2024 4:30;23/08/2024 5:30;60;FALSO
+VIERNES;EL BOSQUE;BLACKCREAM;23/08/2024 5:00;23/08/2024 6:00;60;FALSO
+VIERNES;EL VALLE;LUCÍA REINA;23/08/2024 5:30;23/08/2024 6:30;60;FALSO
+VIERNES;LA CARPA;VIRTUAL FLAVOR B2B EL VIVI;23/08/2024 5:30;23/08/2024 6:30;60;FALSO
+SABADO;GALLERY;SECRET 18:40;23/08/2024 18:40;23/08/2024 18:55;15;FALSO
+SABADO;EL BOSQUE;BROCKI;23/08/2024 19:00;23/08/2024 19:30;30;FALSO
+SABADO;EL VALLE;BLUU;23/08/2024 19:20;23/08/2024 19:55;35;FALSO
+SABADO;EL BOSQUE;LADIFERENCIA2006;23/08/2024 19:30;23/08/2024 20:00;30;VERDADERO
+SABADO;EL VALLE;D. VALENTINO;23/08/2024 20:00;23/08/2024 21:00;60;VERDADERO
+SABADO;GALLERY;SECRET 20:10;23/08/2024 20:10;23/08/2024 20:25;15;FALSO
+SABADO;EL BOSQUE;GRETA;23/08/2024 20:30;23/08/2024 21:15;45;VERDADERO
+SABADO;EL VALLE;JUICY BAE;23/08/2024 21:20;23/08/2024 22:20;60;VERDADERO
+SABADO;GALLERY;SECRET 21:40;23/08/2024 21:40;23/08/2024 21:55;15;FALSO
+SABADO;EL BOSQUE;TEO LUCADAMO;23/08/2024 22:00;23/08/2024 23:00;60;FALSO
+SABADO;EL VALLE;SECRET SHOWCASE;23/08/2024 22:30;23/08/2024 22:50;20;FALSO
+SABADO;LA CARPA;EL VIRTUAL;23/08/2024 22:30;23/08/2024 23:25;55;VERDADERO
+SABADO;EL BOSQUE;VEN'NUS;23/08/2024 23:30;24/08/2024 0:30;60;FALSO
+SABADO;LA CARPA;MDA;23/08/2024 23:30;24/08/2024 0:25;55;VERDADERO
+SABADO;EL VALLE;BB TRICKZ;23/08/2024 23:00;24/08/2024 0:00;60;FALSO
+SABADO;LA CARPA;METRIKA;24/08/2024 0:30;24/08/2024 1:25;55;FALSO
+SABADO;EL VALLE;MVRK;24/08/2024 0:30;24/08/2024 1:30;60;VERDADERO
+SABADO;EL BOSQUE;ULTRALÁGRIMA;24/08/2024 1:00;24/08/2024 2:00;60;VERDADERO
+SABADO;LA CARPA;NEO PISTEA;24/08/2024 1:30;24/08/2024 2:25;55;FALSO
+SABADO;EL VALLE;RUSOWSKY;24/08/2024 2:00;24/08/2024 3:00;60;VERDADERO
+SABADO;LA CARPA;ALBANY;24/08/2024 2:30;24/08/2024 3:25;55;FALSO
+SABADO;EL BOSQUE;EL BUGG;24/08/2024 2:45;24/08/2024 3:30;45;FALSO
+SABADO;EL VALLE;LEÏTI;24/08/2024 3:30;24/08/2024 4:30;60;FALSO
+SABADO;LA CARPA;MAO MOCTEZUMA;24/08/2024 3:30;24/08/2024 4:30;60;FALSO
+SABADO;EL BOSQUE;RALY;24/08/2024 4:00;24/08/2024 5:00;60;FALSO
+SABADO;LA CARPA;SITA;24/08/2024 4:30;24/08/2024 5:30;60;FALSO
+SABADO;EL VALLE;KABASAKI;24/08/2024 4:40;24/08/2024 6:00;80;FALSO
+SABADO;EL BOSQUE;CASA PEPA;24/08/2024 5:00;24/08/2024 6:30;90;FALSO
+SABADO;LA CARPA;NADDDOT B2B BEXNIL;24/08/2024 5:30;24/08/2024 6:30;60;FALSO
+SABADO;EL VALLE;SNEAKY WH;24/08/2024 6:00;24/08/2024 7:00;60;FALSO
+DOMINGO;GALLERY;SECRET 18:40;24/08/2024 18:40;24/08/2024 18:55;15;FALSO
+DOMINGO;EL VALLE;JIME;24/08/2024 19:00;24/08/2024 19:30;30;FALSO
+DOMINGO;EL BOSQUE;TK MAMI;24/08/2024 19:00;24/08/2024 19:30;30;FALSO
+DOMINGO;EL BOSQUE;ETHANUNO;24/08/2024 19:30;24/08/2024 20:00;30;FALSO
+DOMINGO;EL VALLE;NICO MISERIA;24/08/2024 19:45;24/08/2024 20:45;60;VERDADERO
+DOMINGO;GALLERY;SECRET 20:10;24/08/2024 20:10;24/08/2024 20:25;15;FALSO
+DOMINGO;EL BOSQUE;ÇANTAMARTA;24/08/2024 20:30;24/08/2024 21:30;60;VERDADERO
+DOMINGO;EL VALLE;L'HAINE;24/08/2024 21:15;24/08/2024 22:15;60;VERDADERO
+DOMINGO;GALLERY;SECRET 21:40;24/08/2024 21:40;24/08/2024 21:55;15;FALSO
+DOMINGO;EL BOSQUE;BARRY B;24/08/2024 22:00;24/08/2024 23:00;60;VERDADERO
+DOMINGO;LA CARPA;PABLO CHILL-E;24/08/2024 22:30;24/08/2024 23:25;55;FALSO
+DOMINGO;EL VALLE;DISOBEY;24/08/2024 22:45;24/08/2024 23:45;60;VERDADERO
+DOMINGO;EL BOSQUE;LUA DE SANTANA;24/08/2024 23:30;25/08/2024 0:30;60;FALSO
+DOMINGO;LA CARPA;ARDO440;24/08/2024 23:30;25/08/2024 0:25;55;FALSO
+DOMINGO;EL VALLE;STICKY M.A.;25/08/2024 0:15;25/08/2024 1:15;60;VERDADERO
+DOMINGO;LA CARPA;MIDAS ALONSO;25/08/2024 0:30;25/08/2024 1:25;55;FALSO
+DOMINGO;EL BOSQUE;JOHN POLLÓN;25/08/2024 1:00;25/08/2024 2:00;60;VERDADERO
+DOMINGO;LA CARPA;FAENNA;25/08/2024 1:30;25/08/2024 2:25;55;FALSO
+DOMINGO;EL VALLE;YUNG BEEF;25/08/2024 2:00;25/08/2024 3:00;60;VERDADERO
+DOMINGO;EL BOSQUE;NERVE AGENT;25/08/2024 2:30;25/08/2024 3:30;60;VERDADERO
+DOMINGO;LA CARPA;GRECAS;25/08/2024 2:30;25/08/2024 3:25;55;FALSO
+DOMINGO;EL VALLE;BON CALSO;25/08/2024 3:30;25/08/2024 4:30;60;VERDADERO
+DOMINGO;LA CARPA;LOUIS AMOEBA;25/08/2024 3:30;25/08/2024 4:30;60;VERDADERO
+DOMINGO;EL BOSQUE;EUSKOPRINCESS;25/08/2024 4:00;25/08/2024 5:00;60;FALSO
+DOMINGO;LA CARPA;PARKINEOS;25/08/2024 4:30;25/08/2024 5:30;60;VERDADERO
+DOMINGO;EL VALLE;SKINYZ;25/08/2024 4:40;25/08/2024 6:00;80;FALSO
+DOMINGO;EL BOSQUE;ROYCE ROLO;25/08/2024 5:00;25/08/2024 6:00;60;FALSO
+DOMINGO;LA CARPA;AMYGDALA;25/08/2024 5:30;25/08/2024 6:30;60;VERDADERO
+DOMINGO;EL VALLE;CENCII;25/08/2024 6:00;25/08/2024 7:00;60;FALSO
+        `;
+        
+        let scheduleData = []; let conflictingEventIds = new Set(); const STAGES = ['EL BOSQUE', 'EL VALLE', 'LA CARPA', 'GALLERY']; const DAY_ORDER = { 'VIERNES': 1, 'SABADO': 2, 'DOMINGO': 3 }; const PIXELS_PER_HOUR = 80; const DAY_START_HOUR = 18; const LOCAL_STORAGE_KEY = 'myFestivalSchedule'; const { jsPDF } = window.jspdf; const MODAL_PIXELS_PER_HOUR = 50;
+        const normalizeString = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); const parseDate = (dateTimeStr) => { const [datePart, timePart] = dateTimeStr.split(' '); const [day, month, year] = datePart.split('/'); const [hours, minutes] = timePart.split(':'); return new Date(year, month - 1, day, hours, minutes); };
+        document.addEventListener('DOMContentLoaded', () => { let idCounter = 0; scheduleData = txtData.trim().split('\n').slice(1).map(line => { const parts = line.split(';').map(p => p.trim()); if (parts.length < 7) return null; const [day, stage, artist, startTimeStr, endTimeStr, , voyStr] = parts; return { id: idCounter++, day: day.toUpperCase(), stage, artist, startTime: parseDate(startTimeStr), endTime: parseDate(endTimeStr), voy: voyStr === 'VERDADERO' }; }).filter(Boolean); loadMySchedule(); ['viernes', 'sabado', 'domingo'].forEach(generateTimelineView); updateConflictHighlights(); });
+        function generateTimelineView(dayId) { const container = document.getElementById(`timeline-container-${dayId}`); const dayData = scheduleData.filter(e => e.day.toLowerCase() === dayId); if (!dayData.length) { return; } let timeAxisHTML = `<div class="time-axis-header"></div>`; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } const timeAxisContainer = document.createElement('div'); timeAxisContainer.className = 'time-axis'; timeAxisContainer.innerHTML = timeAxisHTML; let stagesContainer = document.createElement('div'); stagesContainer.className = 'stages-container'; stagesContainer.style.height = `${14 * PIXELS_PER_HOUR}px`; STAGES.forEach(stage => { const stageColumn = document.createElement('div'); const stageClassName = `stage-col-${stage.toLowerCase().replace(/ /g, '-')}`; stageColumn.className = `stage-column ${stageClassName}`; stageColumn.innerHTML = `<div class="stage-header">${stage}</div>`; stagesContainer.appendChild(stageColumn); }); container.innerHTML = ''; container.appendChild(timeAxisContainer); container.appendChild(stagesContainer); const dayStartDate = new Date(dayData[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); STAGES.forEach((stage, stageIndex) => { const stageColumn = container.querySelectorAll('.stage-column')[stageIndex]; const stageEvents = dayData.filter(e => e.stage === stage).sort((a,b) => a.startTime - b.startTime); stageEvents.forEach(event => { const top = ((event.startTime - dayStartDate) / 3600000) * PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * PIXELS_PER_HOUR; const block = document.createElement('div'); block.className = `artist-block stage-${event.stage.toLowerCase().replace(/ /g, '-')}`; if (event.voy) block.classList.add('voy'); block.dataset.eventId = event.id; block.style.cssText = `top:${top}px; height:${height}px;`; block.onclick = () => toggleVoy(block); block.innerHTML = `<div class="artist-block-inner"><span class="artist-name">${event.artist}</span><span class="artist-times">${event.startTime.toTimeString().substring(0,5)}-${event.endTime.toTimeString().substring(0,5)}</span></div>`; stageColumn.appendChild(block); }); }); }
+        function toggleVoy(blockEl) { const event = scheduleData.find(e => e.id === +blockEl.dataset.eventId); if (event) { event.voy = !event.voy; blockEl.classList.toggle('voy'); updateConflictHighlights(); saveMySchedule(); } }
+        function saveMySchedule() { const myVoyEventIds = scheduleData.filter(event => event.voy).map(event => event.id); localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(myVoyEventIds)); }
+        function loadMySchedule() { const savedData = localStorage.getItem(LOCAL_STORAGE_KEY); if (savedData) { const savedIds = new Set(JSON.parse(savedData)); scheduleData.forEach(event => { event.voy = savedIds.has(event.id); }); } }
+        function clearMySchedule() { if (confirm('¿Estás seguro de que quieres eliminar todas tus selecciones? Esta acción no se puede deshacer.')) { scheduleData.forEach(event => event.voy = false); document.querySelectorAll('.artist-block.voy').forEach(block => block.classList.remove('voy')); updateConflictHighlights(); saveMySchedule(); } }
+        function downloadSchedulePDF() { const myEvents = scheduleData.filter(e => e.voy).sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); if (myEvents.length === 0) { alert("No has seleccionado ningún concierto para descargar."); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageHeight = doc.internal.pageSize.height; const pageWidth = doc.internal.pageSize.width; const margin = 15; let y = margin + 10; let currentDay = ''; const stageColors = { 'EL BOSQUE': '#8FBCBB', 'EL VALLE': '#B48EAD', 'LA CARPA': '#D08770', 'GALLERY': '#EBCB8B' }; const conflictColor = '#BF616A'; doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('Mi Horario del Festival', pageWidth / 2, margin, { align: 'center' }); y += 10; myEvents.forEach(event => { if (y > pageHeight - margin) { doc.addPage(); y = margin; } if(event.day !== currentDay) { currentDay = event.day; y += 10; if (y > pageHeight - margin) { doc.addPage(); y = margin; } doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text(currentDay, margin, y); y += 7; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 8; } const timeStr = `${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}`; let artistStr = event.artist; const stageStr = event.stage; const isConflict = conflictingEventIds.has(event.id); doc.setFontSize(11); const color = stageColors[event.stage] || '#4C566A'; doc.setFillColor(color); doc.rect(margin, y - 4, 3, 6, 'F'); doc.setFont('helvetica', 'bold'); doc.text(timeStr, margin + 5, y); if (isConflict) { artistStr = '[!] ' + artistStr; doc.setTextColor(conflictColor); } else { doc.setTextColor(0, 0, 0); } doc.setFont('helvetica', 'normal'); doc.text(artistStr, margin + 40, y); doc.setTextColor(0, 0, 0); doc.setTextColor(100); doc.text(stageStr, pageWidth - margin, y, { align: 'right' }); doc.setTextColor(0); y += 10; }); doc.save('mi_horario_festival.pdf'); }
+        
+        const modal = document.getElementById('my-schedule-modal'), modalContentEl = modal.querySelector('.modal-content'), modalTitle = document.getElementById('modal-title'), modalContent = document.getElementById('my-schedule-content');
+        
+        const openMyScheduleList = () => {
+            openModal('Mi Horario (Lista)', generateListHTML);
+            modalContentEl.classList.remove('graphic-view-active');
+            modalContentEl.classList.add('list-view-active');
+            modalContent.classList.add('list-view-active');
+        };
+        const openMyScheduleTimeline = () => {
+            openModal('Mi Horario (Gráfico)', generateTimelineHTML);
+            modalContentEl.classList.remove('list-view-active');
+            modalContentEl.classList.add('graphic-view-active');
+            modalContent.classList.remove('list-view-active');
+        };
+        const closeModal = () => {
+            modal.style.display = 'none';
+            modalContentEl.classList.remove('list-view-active', 'graphic-view-active');
+            modalContent.classList.remove('list-view-active');
+        };
+        window.onclick = e => { if (e.target == modal) closeModal(); };
+
+        function openModal(title, contentGenerator) { const myEvents = scheduleData.filter(e => e.voy); modalTitle.textContent = title; let content = myEvents.length === 0 ? '<p>No has seleccionado ningún concierto.</p>' : contentGenerator(myEvents); if (myEvents.length > 0 && conflictingEventIds.size > 0) { content += '<p class="modal-legend" style="text-align:center; margin-top:15px; font-size:0.9em;">⚠️ Indica un conflicto de horario con otro concierto seleccionado.</p>'; } modalContent.innerHTML = content; modal.style.display = 'block'; }
+        function updateConflictHighlights() { conflictingEventIds.clear(); const myEvents = scheduleData.filter(e => e.voy); for (let i = 0; i < myEvents.length; i++) { for (let j = i + 1; j < myEvents.length; j++) { const eventA = myEvents[i], eventB = myEvents[j]; if (eventA.startTime < eventB.endTime && eventA.endTime > eventB.startTime) { conflictingEventIds.add(eventA.id); conflictingEventIds.add(eventB.id); } } } document.querySelectorAll('.artist-block').forEach(block => { block.classList.toggle('conflicts', conflictingEventIds.has(+block.dataset.eventId)); }); }
+        function showDay(day) { const normalizedDay = normalizeString(day); document.querySelectorAll('.schedule').forEach(s => s.classList.remove('active')); document.getElementById(normalizedDay).classList.add('active'); document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', normalizeString(t.dataset.day) === normalizedDay)); }
+        const getCssVarForStage = stage => ({'EL BOSQUE': '--nord7', 'EL VALLE': '--nord15', 'LA CARPA': '--nord12', 'GALLERY': '--nord13'}[stage]);
+        function generateListHTML(myEvents) { myEvents.sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); let currentDay = ''; return myEvents.map(event => { const dayHeader = event.day !== currentDay ? `<div class="entry-day">${currentDay = event.day}</div>` : ''; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; return `${dayHeader}<div class="entry ${conflictClass}" style="border-left-color: var(${getCssVarForStage(event.stage)})"> <div class="entry-details"> <div class="entry-time">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</div> <div class="entry-artist">${event.artist}<span class="conflict-icon">⚠️</span></div> <div class="entry-stage">${event.stage}</div> </div> </div>`; }).join(''); }
+        function generateTimelineHTML(myEvents) { const eventsByDay = myEvents.reduce((acc, event) => { (acc[event.day] = acc[event.day] || []).push(event); return acc; }, {}); const sortedDays = Object.keys(eventsByDay).sort((a,b) => DAY_ORDER[a] - DAY_ORDER[b]); if (sortedDays.length === 0) return ''; let selectorHTML = `<div class="modal-controls"><label for="day-selector">Selecciona un día:</label> <select id="day-selector" onchange="renderModalTimelineForDay(this.value)">`; sortedDays.forEach(day => { selectorHTML += `<option value="${day}">${day}</option>`; }); selectorHTML += `</select></div><div id="modal-timeline-content"></div>`; setTimeout(() => { if (sortedDays.length > 0) renderModalTimelineForDay(sortedDays[0]); }, 0); return selectorHTML; }
+        function renderModalTimelineForDay(day) { const contentContainer = document.getElementById('modal-timeline-content'); const dayEvents = scheduleData.filter(e => e.voy && e.day === day); if (!dayEvents.length) { contentContainer.innerHTML = "<p>No tienes conciertos seleccionados para este día.</p>"; return; } let timeAxisHTML = ''; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="modal-time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } dayEvents.sort((a, b) => a.startTime - b.startTime); const columns = []; dayEvents.forEach(event => { let placed = false; for (let i = 0; i < columns.length; i++) { if (columns[i].every(e => event.startTime >= e.endTime || event.endTime <= e.startTime)) { columns[i].push(event); event.column = i; placed = true; break; } } if (!placed) { event.column = columns.length; columns.push([event]); } }); const dayStartDate = new Date(dayEvents[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const eventBlocks = dayEvents.map(event => { const top = ((event.startTime - dayStartDate) / 3600000) * MODAL_PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * MODAL_PIXELS_PER_HOUR; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; const stageColorVar = getCssVarForStage(event.stage); const indentStep = 12; const baseWidth = 95; const left = event.column * indentStep; const width = baseWidth - left; const overlapClass = event.column > 0 ? 'overlapped' : ''; return `<div class="modal-event-block ${conflictClass} ${overlapClass}" style="top:${top}px; height:${height}px; width:${width}%; left:${left}%; z-index:${10 + event.column}; background-color: var(${stageColorVar});"> <span class="artist-name">${event.artist}</span> <span class="artist-times">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</span> </div>`; }).join(''); contentContainer.innerHTML = `<div class="modal-timeline-wrapper"><div class="modal-time-axis">${timeAxisHTML}</div><div class="modal-events-area" style="min-height:${14 * MODAL_PIXELS_PER_HOUR}px"><div class="modal-events-container" style="position:relative; height:100%">${eventBlocks}</div></div></div>`; }
+    </script>
+</body>
+</html>
