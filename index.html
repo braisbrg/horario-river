@@ -2,293 +2,960 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RIVERLAND Horario</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, increment } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Riverland Horarios</title>
 
-        // Tu configuración personal de Firebase
-        const firebaseConfig = {
-            apiKey: "AIzaSyC2dtGCYmr90YAt5cTCd3toNXNziRuLRqM",
-            authDomain: "horarios-river.firebaseapp.com",
-            projectId: "horarios-river",
-            storageBucket: "horarios-river.appspot.com",
-            messagingSenderId: "950389346680",
-            appId: "1:950389346680:web:fe589a8d5e24be0fe1f88d"
-        };
+    <!-- --- METADATOS SEO --- -->
+    <meta name="description" content="Organiza tu Riverland">
+    <meta property="og:title" content="RIVERLAND 2025 | Planner">
+    <meta property="og:description" content="Organiza tu Riverland">
+    <meta property="og:image" content="fotometa.jpg">
+    <meta property="twitter:image" content="fotometa.jpg">
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    <!-- Fuentes -->
+    <link href="https://api.fontshare.com/v2/css?f[]=general-sans@200,400,600,700,800&f[]=boxing@400&display=swap" rel="stylesheet">
 
-        window.firebase = { db, collection, doc, setDoc, onSnapshot, increment };
-    </script>
+    <!-- Librerías -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lenis/1.0.42/lenis.min.js"></script>
 
     <style>
         :root {
-            --nord0: #2E3440; --nord1: #3B4252; --nord3: #4C566A;
-            --nord4: #D8DEE9; --nord6: #ECEFF4; --nord7: #8FBCBB;
-            --nord10: #5E81AC; --nord11: #BF616A; --nord14: #A3BE8C;
-            --nord15: #B48EAD; --nord13: #EBCB8B; --nord12: #D08770;
+            /* TEMA OSCURO */
+            --bg: #050505;
+            --grid-line: rgba(255, 255, 255, 0.06);
+            --text-main: #ededed;
+            --accent: #ff0055; /* HOT PINK */
+            --card-bg: #0e0e0e;
+            --header-bg: rgba(5, 5, 5, 0.95);
+            
+            /* COLORES ESCENARIOS */
+            --color-valle: #ff0055;
+            --color-bosque: #00ff9d;
+            --color-carpa: #00eaff;
+            --color-gallery: #ffdd00;
+            
+            --f-display: 'Boxing', sans-serif;
+            --f-body: 'General Sans', sans-serif;
+
+            --header-h: 70px;
+            --subheader-h: 50px;
+            --time-col-width: 60px;
+            --hour-height: 120px;
         }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        body { background-color: var(--nord0); color: var(--nord6); padding: 20px; line-height: 1.2; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        header { text-align: center; margin-bottom: 30px; padding: 20px; background: var(--nord1); border-radius: 10px; border: 1px solid var(--nord3); }
-        h1 { font-size: 2.5rem; margin-bottom: 10px; color: var(--nord11); }
-        header p { line-height: 1.5; }
-        .day-tabs { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
-        .day-tab { padding: 10px 20px; margin: 0 10px 10px; background: var(--nord3); border-radius: 5px; cursor: pointer; }
-        .day-tab.active { background: var(--nord7); color: var(--nord0); }
-        
-        .schedule { display: none; background: var(--nord1); border-radius: 10px; border: 1px solid var(--nord3); margin-bottom: 30px; }
-        .schedule.active { display: block; }
-        .timeline-container { position: relative; }
-        .time-axis { float: left; width: 60px; }
-        .time-axis .time-label { height: 80px; font-size: 0.9em; color: var(--nord4); text-align: right; padding-right: 10px; border-top: 1px solid var(--nord3); }
-        .stages-container { margin-left: 60px; display: flex; position: relative; }
-        .stage-column { flex: 1; border-left: 1px solid var(--nord3); position: relative; }
-        .stage-header { text-align: center; padding: 10px 0; background-color: var(--nord1); position: sticky; top: 0; z-index: 5; transition: background-color 0.3s ease; height: 36px; }
-        .time-axis-header { height: 36px; }
+        [data-theme="light"] {
+            --bg: #f8f8f8;
+            --grid-line: rgba(0, 0, 0, 0.08);
+            --text-main: #111;
+            --card-bg: #fff;
+            --header-bg: rgba(248, 248, 248, 0.95);
+        }
 
-        .artist-block { position: absolute; width: 98%; margin-left: 1%; padding: 4px 8px; border-radius: 4px; overflow: hidden; transition: all 0.2s ease; z-index: 2; background-color: var(--nord1); border-left: 6px solid transparent; display: flex; flex-direction: column; justify-content: center; cursor: pointer; }
-        .artist-block-inner { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
-        .artist-details { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .artist-name { font-weight: bold; font-size: 0.9em; }
-        .artist-times { font-size: 0.8em; opacity: 0.9; flex-shrink: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: crosshair !important; }
         
-        .artist-block.stage-el-bosque { border-left-color: var(--nord7); background-color: rgba(143, 188, 187, 0.15); }
-        .artist-block.stage-el-valle { border-left-color: var(--nord15); background-color: rgba(180, 142, 173, 0.15); }
-        .artist-block.stage-la-carpa { border-left-color: var(--nord12); background-color: rgba(208, 135, 112, 0.15); }
-        .artist-block.stage-gallery { border-left-color: var(--nord13); background-color: rgba(235, 203, 139, 0.15); }
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: var(--f-body);
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
 
-        .stage-col-el-bosque .stage-header { background-color: rgba(143, 188, 187, 0.15); }
-        .stage-col-el-valle .stage-header { background-color: rgba(180, 142, 173, 0.15); }
-        .stage-col-la-carpa .stage-header { background-color: rgba(208, 135, 112, 0.15); }
-        .stage-col-gallery .stage-header { background-color: rgba(235, 203, 139, 0.15); }
-        
-        .artist-block.voy { background-color: var(--nord14); }
-        .artist-block.voy .artist-name, .artist-block.voy .artist-times, .artist-block.voy .vote-button, .artist-block.voy .vote-counter { color: var(--nord0); }
-        .artist-block.conflicts::after { content: '⚠️'; position: absolute; top: 2px; right: 5px; font-size: 1.2em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 5; }
+        /* --- VISUAL FX --- */
+        .overlay-noise {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 9000;
+            background: url('data:image/svg+xml;utf8,%3Csvg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noiseFilter"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/%3E%3C/filter%3E%3Crect width="100%25" height="100%25" filter="url(%23noiseFilter)" opacity="0.07"/%3E%3C/svg%3E');
+            mix-blend-mode: overlay; opacity: 0.5;
+        }
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 3px; pointer-events: none; z-index: 9001; opacity: 0.3;
+        }
+        #intro-curtain {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 10000;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .intro-text {
+            font-family: var(--f-display); font-size: 8vw; color: var(--accent);
+            text-transform: uppercase; min-height: 1.2em; letter-spacing: 2px;
+        }
+        #canvas-webgl { position: fixed; top: 0; left: 0; width: 100%; height: 100vh; z-index: -1; opacity: 0.4; transition: opacity 0.3s; }
 
-        .vote-area { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-        .vote-button { cursor: pointer; font-size: 1.4rem; color: var(--nord6); transition: color 0.2s, transform 0.2s; }
-        .vote-button.voted { color: var(--nord11); }
-        .vote-button:hover { transform: scale(1.1); }
-        .vote-counter { font-size: 0.9rem; font-weight: bold; min-width: 12px; text-align: center; }
+        /* --- HEADER & BRAND ANIMATION --- */
+        header {
+            position: fixed; top: 0; left: 0; width: 100%; height: var(--header-h); z-index: 1000;
+            padding: 0 25px; display: flex; align-items: center; justify-content: space-between;
+            background: var(--header-bg); border-bottom: 1px solid var(--grid-line); backdrop-filter: blur(10px);
+        }
 
-        .header-buttons { display: flex; justify-content: center; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
-        .schedule-button { background-color: var(--nord14); color: var(--nord0); border: none; padding: 12px 25px; font-size: 1rem; font-weight: bold; border-radius: 5px; cursor: pointer; }
-        .clear-button { background-color: var(--nord11); }
-        .pdf-button { background-color: var(--nord10); color: var(--nord6) }
+        .brand { 
+            font-family: var(--f-display); font-size: 1.8rem; color: var(--accent); 
+            letter-spacing: -1px; cursor: pointer; white-space: nowrap;
+            position: relative; display: inline-block;
+            /* Animación Glitch Restaurada */
+            animation: glitch-skew 4s infinite linear alternate-reverse;
+        }
+        .brand::before, .brand::after {
+            content: "RL '25"; position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.8;
+        }
+        .brand::before { color: #0ff; z-index: -1; clip-path: inset(0 0 60% 0); animation: glitch-anim-1 3s infinite linear alternate-reverse; }
+        .brand::after { color: #f0f; z-index: -2; clip-path: inset(40% 0 0 0); animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+
+        @keyframes glitch-skew {
+            0% { transform: skew(0deg); }
+            20% { transform: skew(0deg); }
+            22% { transform: skew(10deg); }
+            24% { transform: skew(-10deg); }
+            26% { transform: skew(0deg); }
+            100% { transform: skew(0deg); }
+        }
+        @keyframes glitch-anim-1 { 0% { transform: translate(0); } 20% { transform: translate(-2px, 2px); } 40% { transform: translate(-2px, -2px); } 60% { transform: translate(2px, 2px); } 80% { transform: translate(2px, -2px); } 100% { transform: translate(0); } }
+        @keyframes glitch-anim-2 { 0% { transform: translate(0); } 20% { transform: translate(2px, -2px); } 40% { transform: translate(2px, 2px); } 60% { transform: translate(-2px, -2px); } 80% { transform: translate(-2px, 2px); } 100% { transform: translate(0); } }
+
+        body.searching .brand { opacity: 0; pointer-events: none; }
+
+        /* --- INFO MODAL (REDISEÑADO) --- */
+        .info-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 5000; display: none; justify-content: center; align-items: center;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .info-overlay.active { display: flex; opacity: 1; }
         
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.7); animation: fadeIn 0.5s; }
-        .modal-content { background-color: var(--nord1); padding: 20px 30px; border: 1px solid var(--nord3); width: 95%; max-width: 900px; border-radius: 10px; position: relative; }
-        .close-button { color: var(--nord4); position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .modal-content.list-view-active { margin: 5% auto; }
-        .modal-content.graphic-view-active { margin: 20px auto; }
-        #my-schedule-content.list-view-active { max-height: 60vh; overflow-y: auto; padding-right: 15px; }
-        #my-schedule-content .entry { background-color: var(--nord0); padding: 15px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; border-left: 6px solid transparent; }
-        #my-schedule-content .entry-details { flex-grow: 1; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        #my-schedule-content .entry-time { font-weight: bold; flex-basis: 120px; }
-        #my-schedule-content .entry-artist { flex-grow: 1; font-size: 1.1rem; display: flex; align-items: center; }
-        #my-schedule-content .entry-stage { background: var(--nord3); padding: 3px 8px; border-radius: 4px; font-size: 0.9em; }
-        #my-schedule-content .entry-day { width: 100%; font-weight: bold; color: var(--nord11); margin-bottom: 10px; padding-bottom: 5px; border-bottom: 1px solid var(--nord3); font-size: 1.3rem; }
-        .conflict-icon { display: none; margin-left: 8px; font-size: 1.1em; }
-        #my-schedule-content .entry.conflicts .conflict-icon { display: inline; }
-        .modal-controls { margin-bottom: 15px; }
-        .modal-controls label { margin-right: 10px; }
-        .modal-controls select { background-color: var(--nord3); color: var(--nord6); border: 1px solid var(--nord4); padding: 5px; border-radius: 4px; }
-        .modal-timeline-wrapper { display: flex; overflow-x: hidden; }
-        .modal-time-axis { flex-shrink: 0; padding-right: 10px; }
-        .modal-time-label { height: 50px; font-size: 0.9em; color: var(--nord4); position: relative; }
-        .modal-time-label::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; border-bottom: 1px dashed var(--nord3); }
-        .modal-events-area { flex-grow: 1; position: relative; overflow-x: auto; }
-        .modal-event-block { position: absolute; padding: 8px; border-radius: 5px; overflow: hidden; text-align: left; font-size: 0.9em; background-color: var(--nord1); border: 1px solid var(--nord3); box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; transition: opacity 0.3s ease; }
-        .modal-event-block.conflicts::after { content: '⚠️'; position: absolute; top: 4px; right: 5px; font-size: 1.1em; color: var(--nord11); text-shadow: 0 0 5px var(--nord0); z-index: 15; }
-        .modal-event-block.overlapped { opacity: 0.75; }
+        .info-box {
+            background: var(--card-bg); border: 1px solid var(--accent);
+            padding: 40px 30px; width: 90%; max-width: 420px;
+            border-radius: 16px; position: relative;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+        }
+        .info-title { 
+            font-family: var(--f-display); font-size: 2rem; color: var(--accent); 
+            margin-bottom: 30px; text-align: center; letter-spacing: 1px;
+        }
         
-        #votos { padding: 20px; }
-        .vote-filter-tabs { display: flex; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
-        .vote-filter-tab { padding: 8px 15px; margin: 0 5px 8px; background: var(--nord3); border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
-        .vote-filter-tab.active { background: var(--nord7); color: var(--nord0); }
-        .vote-entry { display: flex; align-items: center; background-color: var(--nord0); padding: 12px 15px; border-radius: 6px; margin-bottom: 10px; border-left: 5px solid; }
-        .vote-count { font-size: 1.4rem; font-weight: bold; margin-right: 15px; color: var(--nord13); }
-        .vote-details { flex-grow: 1; }
-        .vote-artist { display: flex; align-items: center; font-size: 1.1rem; font-weight: bold; }
-        .vote-time-stage { font-size: 0.9rem; opacity: 0.8; }
-        /* --- MODIFICACIÓN: Estilo para el corazón rojo en la lista de votos --- */
-        .my-vote-icon { color: var(--nord11); font-size: 0.9em; margin-left: 8px; }
+        /* LISTA LIMPIA SIN EMOJIS DE FUENTE */
+        .info-list { list-style: none; padding: 0; }
+        .info-item { 
+            display: flex; align-items: center; gap: 15px; margin-bottom: 20px; 
+            font-family: var(--f-body); font-size: 0.95rem; line-height: 1.4; color: var(--text-main);
+        }
+        .info-icon-wrap {
+            width: 40px; height: 40px; border-radius: 50%; 
+            background: rgba(255, 0, 85, 0.1); border: 1px solid var(--grid-line);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .info-icon-wrap svg { width: 20px; height: 20px; fill: var(--accent); }
         
-        @keyframes fadeIn { from {opacity: 0;} to {opacity: 1;} }
+        .close-info-btn {
+            position: absolute; top: 15px; right: 15px;
+            background: transparent; border: none; color: var(--text-main);
+            font-size: 1.5rem; width: 40px; height: 40px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; transition: 0.2s;
+        }
+        .close-info-btn:hover { background: rgba(255,255,255,0.1); transform: rotate(90deg); }
+        .close-info-btn svg { width: 24px; height: 24px; fill: currentColor; }
+
+        /* --- SEARCH UI --- */
+        .search-wrapper { position: relative; display: flex; align-items: center; margin-left: auto; }
+        .search-bar {
+            width: 0; opacity: 0; overflow: hidden;
+            transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+            display: flex; align-items: center; background: transparent;
+            border-bottom: 1px solid var(--accent); margin-right: 10px;
+        }
+        .search-wrapper.active .search-bar { width: 220px; opacity: 1; }
+        .search-input {
+            width: 100%; background: transparent; border: none;
+            color: var(--text-main); font-family: var(--f-body); font-weight: 600; font-size: 1rem;
+            padding: 5px 0; outline: none; text-transform: uppercase;
+        }
+        .search-input::placeholder { opacity: 0.5; }
+
+        .search-results {
+            position: absolute; top: 50px; right: 0; width: 300px;
+            background: var(--header-bg); border: 1px solid var(--grid-line);
+            max-height: 300px; overflow-y: auto; border-radius: 8px;
+            display: none; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 2000;
+        }
+        .search-item {
+            padding: 12px 15px; border-bottom: 1px solid var(--grid-line); cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center; transition: 0.1s;
+        }
+        .search-item:hover, .search-item.selected { background: var(--accent); color: #000; }
+        .search-item-name { font-weight: 800; text-transform: uppercase; font-size: 0.9rem; }
+        .search-item-info { font-size: 0.75rem; opacity: 0.7; font-weight: 600;}
+
+        /* ICONS */
+        .header-actions { display: flex; align-items: center; gap: 15px; }
+        .icon-btn {
+            background: transparent; border: none; color: var(--text-main);
+            width: 35px; height: 35px; display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; cursor: pointer; transition: transform 0.2s, opacity 0.2s; padding: 0;
+        }
+        .icon-btn:hover { opacity: 0.7; transform: scale(1.1); }
+        .icon-btn svg { width: 24px; height: 24px; fill: currentColor; }
+
+        /* --- GRID --- */
+        .main-viewport { padding-top: var(--header-h); width: 100%; position: relative; min-height: 100vh; }
+        .stage-headers {
+            position: sticky; top: var(--header-h); height: var(--subheader-h); z-index: 50;
+            display: flex; width: 100%; background: var(--bg); border-bottom: 1px solid var(--grid-line);
+            padding-left: var(--time-col-width); transition: background 0.3s;
+        }
+        .header-cell {
+            flex: 1; display: flex; align-items: center; justify-content: center;
+            font-family: var(--f-display); font-size: 1.1rem; color: var(--text-main); 
+            border-left: 1px solid var(--grid-line); opacity: 0.8; letter-spacing: 1px;
+        }
+        .grid-body { position: relative; width: 100%; padding-bottom: 0; }
+        .hour-line { position: absolute; width: 100%; height: 1px; background: var(--grid-line); left: 0; pointer-events: none; }
+        .hour-label {
+            position: absolute; left: 0; top: -10px; width: var(--time-col-width);
+            text-align: center; font-size: 0.75rem; color: var(--text-main); opacity: 0.5; 
+            font-family: monospace; font-weight: bold;
+        }
+
+        /* --- CARDS --- */
+        .card {
+            position: absolute; padding: 8px 10px;
+            background: var(--card-bg); border: 1px solid var(--grid-line);
+            overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+            transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+            scroll-margin-top: 180px; 
+        }
+        @media(hover: hover) {
+            .card:hover { z-index: 100; border-color: var(--accent); box-shadow: 0 10px 40px rgba(255,0,85,0.3); }
+        }
+
+        @keyframes smooth-pulse {
+            0% { box-shadow: 0 0 0 0px var(--accent); border-color: var(--accent); }
+            50% { box-shadow: 0 0 50px 10px rgba(255, 0, 85, 0.6); border-color: #fff; }
+            100% { box-shadow: 0 0 0 0px var(--accent); border-color: var(--accent); }
+        }
+        .card.blink-active { animation: smooth-pulse 1.5s ease-in-out 2; z-index: 500 !important; }
+
+        .card.is-fav {
+            background: var(--accent); border-color: var(--accent); color: #000 !important;
+            z-index: 20; box-shadow: inset 0 0 30px rgba(0,0,0,0.4); transform: scale(0.95) !important;
+        }
+        .card.is-fav .card-artist { color: #000; font-weight: 900; text-shadow: none; }
+        .card.is-fav .card-time { color: #000; opacity: 1; font-weight: 800; }
+
+        .card-artist {
+            font-family: var(--f-display); font-weight: 900; text-transform: uppercase;
+            font-size: 1.15rem; line-height: 1.1; padding-top: 4px; margin-bottom: 3px; 
+            color: var(--text-main); pointer-events: none;
+        }
+        .card-time { 
+            font-size: 0.75rem; color: var(--text-main); opacity: 0.6; 
+            font-family: monospace; pointer-events: none; 
+        }
+
+        /* --- CONTROLS --- */
+        .controls-bar {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 900; display: flex; gap: 8px;
+            background: var(--header-bg); backdrop-filter: blur(10px);
+            padding: 6px; border-radius: 100px; border: 1px solid var(--grid-line);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .day-btn {
+            background: transparent; border: none; color: var(--text-main); opacity: 0.7;
+            padding: 12px 24px; border-radius: 40px; 
+            font-family: var(--f-body); font-weight: 800; text-transform: uppercase; font-size: 0.85rem;
+            transition: 0.2s;
+        }
+        .day-btn.active { background: var(--accent); color: #fff; opacity: 1; box-shadow: 0 0 20px rgba(255,0,85,0.4); }
+
+        /* --- FAB --- */
+        .fab-print-only {
+            position: fixed; bottom: 30px; right: 20px; z-index: 900;
+            width: 60px; height: 60px; border-radius: 50%; background: var(--card-bg);
+            border: 1px solid var(--grid-line); color: var(--text-main); 
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; transition: 0.2s; box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        .fab-print-only:hover { transform: scale(1.1); border-color: var(--accent); color: var(--accent); }
+
+        /* --- MOBILE SPECIFICS --- */
+        @media (max-width: 768px) {
+            :root { --header-h: 70px; } 
+            .search-wrapper.active .search-bar { width: 160px; }
+            
+            .search-results { 
+                position: fixed; top: var(--header-h); left: 0; right: 0;
+                width: 100vw; border-radius: 0; border-left: none; border-right: none;
+                max-height: 50vh;
+            }
+            .main-viewport { padding-top: var(--header-h); }
+            .grid-body { padding: 10px 10px 140px 10px; height: auto !important; }
+            .stage-headers, .hour-line { display: none; }
+            .fab-print-only { bottom: 90px; z-index: 1000; }
+
+            .card {
+                position: relative !important; top: auto !important; left: auto !important; 
+                width: 100% !important; height: auto !important;
+                margin-bottom: 12px; min-height: 80px;
+                border: 1px solid var(--grid-line); border-left-width: 8px;
+                transform: none !important;
+            }
+            .card[data-stage="EL VALLE"] { border-left-color: var(--color-valle); }
+            .card[data-stage="EL BOSQUE"] { border-left-color: var(--color-bosque); }
+            .card[data-stage="LA CARPA"] { border-left-color: var(--color-carpa); }
+            .card[data-stage="GALLERY"] { border-left-color: var(--color-gallery); }
+
+            .card.is-fav { background: var(--accent); border-color: var(--accent); }
+            .card.is-fav[data-stage="EL VALLE"] { border-left-color: var(--color-valle) !important; }
+            .card.is-fav[data-stage="EL BOSQUE"] { border-left-color: var(--color-bosque) !important; }
+            .card.is-fav[data-stage="LA CARPA"] { border-left-color: var(--color-carpa) !important; }
+            .card.is-fav[data-stage="GALLERY"] { border-left-color: var(--color-gallery) !important; }
+
+            .mobile-stage-tag {
+                font-size: 0.7rem; font-weight: bold; color: var(--text-main); opacity: 0.7; margin-bottom: 4px; 
+                display: inline-block; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--grid-line);
+            }
+            .card.is-fav .mobile-stage-tag { border: 1px solid #000; color: #000; font-weight: 900; opacity: 1; }
+            
+            .mobile-time-sep {
+                position: sticky; top: 70px; z-index: 40;
+                background: var(--bg); 
+                font-family: monospace; font-weight: bold; color: var(--accent);
+                padding: 15px 10px 10px 10px; border-bottom: 1px solid var(--grid-line); 
+                margin-bottom: 10px; margin-top: -1px; box-shadow: 0 5px 15px rgba(0,0,0,0.8);
+            }
+            [data-theme="light"] .mobile-time-sep { box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        }
+
+        /* --- PRINT --- */
+        @media print {
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            body { background: #fff !important; color: #000 !important; }
+            body > *:not(#print-area) { display: none !important; }
+            #print-area { display: block !important; position: absolute; top: 0; left: 0; width: 100%; padding: 30px; z-index: 99999; background: white; }
+            .print-header { border-bottom: 4px solid #000; margin-bottom: 30px; padding-bottom: 10px; }
+            .print-title { font-size: 3rem; font-weight: 900; text-transform: uppercase; line-height: 1; margin-bottom: 10px;}
+            .print-legend { display: flex; gap: 15px; font-size: 0.7rem; font-weight: bold; text-transform: uppercase; flex-wrap: wrap; }
+            .legend-box { display: inline-block; width: 12px; height: 12px; margin-right: 5px; vertical-align: middle; border: 1px solid #000; }
+            .print-day-block { margin-bottom: 30px; page-break-inside: avoid; }
+            .print-day-title { font-size: 1.8rem; font-weight: 900; text-transform: uppercase; border-bottom: 3px solid #000; display: inline-block; margin-bottom: 15px;}
+            .print-item { display: flex; padding: 8px 0; border-bottom: 1px solid #ddd; align-items: center; }
+            .print-item.has-clash { background-color: rgba(255, 0, 0, 0.05) !important; }
+            .print-time { width: 100px; font-weight: 800; font-size: 0.95rem; }
+            .print-stage { width: 140px; }
+            .print-stage-tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 900; text-transform: uppercase; color: #000 !important; border: 1px solid #000; }
+            .print-artist { flex: 1; font-weight: 900; font-size: 1.2rem; text-transform: uppercase; }
+            .clash-badge { color: red; font-size: 0.7rem; font-weight: 900; margin-left: 10px; border: 2px solid red; padding: 2px 5px; border-radius: 4px; display: inline-block; }
+        }
+        #print-area { display: none; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>RIVERLAND</h1>
-            <p>
-                Haz clic en un concierto para añadirlo a <b>tu horario personal</b> (se marcará en verde).<br>
-                Pulsa el corazón ♥️ para <b>votar públicamente</b> por tus favoritos.<br>
-                Los conflictos en tu horario personal se marcarán con ⚠️.
-            </p>
-            <div class="header-buttons">
-                <button class="schedule-button" onclick="openMyScheduleList()">Ver Mi Horario (Lista)</button>
-                <button class="schedule-button" onclick="openMyScheduleTimeline()">Ver Mi Horario (Gráfico)</button>
-                <button class="schedule-button pdf-button" onclick="downloadSchedulePDF()">Descargar PDF</button>
-                <button class="schedule-button clear-button" onclick="clearMySchedule()">Limpiar Mi Horario</button>
-            </div>
-        </header>
-        <div class="day-tabs">
-            <div class="day-tab active" data-day="viernes" onclick="showDay('viernes')">VIERNES</div>
-            <div class="day-tab" data-day="sabado" onclick="showDay('sábado')">SÁBADO</div>
-            <div class="day-tab" data-day="domingo" onclick="showDay('domingo')">DOMINGO</div>
-            <div class="day-tab" data-day="votos" onclick="showDay('votos')">VOTOS</div>
+
+    <div class="scanlines"></div>
+    <div class="overlay-noise"></div>
+    <canvas id="canvas-webgl"></canvas>
+    <div id="intro-curtain"><div class="intro-text" id="typewriter"></div></div>
+
+    <!-- INFO MODAL POLISHED -->
+    <div class="info-overlay" id="info-overlay" onclick="closeInfoViaOverlay(event)">
+        <div class="info-box">
+            <button class="close-info-btn" onclick="toggleInfo()">
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+            <div class="info-title">GUÍA RÁPIDA</div>
+            <ul class="info-list">
+                <li class="info-item">
+                    <div class="info-icon-wrap">
+                         <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                    </div> 
+                    <div><strong>BUSCAR:</strong> Encuentra artistas y salta a su horario.</div>
+                </li>
+                <li class="info-item">
+                    <div class="info-icon-wrap">
+                         <svg viewBox="0 0 24 24"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+                    </div>
+                    <div><strong>SELECCIONAR:</strong> Pulsa un concierto para añadir a tu ruta.</div>
+                </li>
+                <li class="info-item">
+                    <div class="info-icon-wrap">
+                         <svg viewBox="0 0 24 24"><path d="M19 8h-1V3H6v5H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zM8 5h8v3H8V5zm8 12v2H8v-4h8v2zm2-2v-2H6v2H4v-4c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v4h-2z"/></svg>
+                    </div>
+                    <div><strong>PDF:</strong> Descarga tu horario (avisa si hay solapes).</div>
+                </li>
+                <li class="info-item">
+                    <div class="info-icon-wrap">
+                        <svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+                    </div>
+                    <div><strong>TEMA:</strong> Alterna entre modo día y modo noche.</div>
+                </li>
+            </ul>
+            <div style="margin-top:20px; font-size:0.7rem; opacity:0.6; text-align:center; font-family:'General Sans', sans-serif;">RIVERLAND 2025 FAN MADE PLANNER</div>
         </div>
-        <div id="viernes" class="schedule active"><div class="timeline-container" id="timeline-container-viernes"></div></div>
-        <div id="sabado" class="schedule"><div class="timeline-container" id="timeline-container-sabado"></div></div>
-        <div id="domingo" class="schedule"><div class="timeline-container" id="timeline-container-domingo"></div></div>
-        <div id="votos" class="schedule"></div>
-        <div id="my-schedule-modal" class="modal"><div class="modal-content"><span class="close-button" onclick="closeModal()">&times;</span><h2 id="modal-title">Mi Horario</h2><div id="my-schedule-content"></div></div></div>
-    </body>
+    </div>
 
-    <script type="module">
-        const txtData = `
-Día;Escenario;Artista;Hora Inicio;Hora Fin;Duración (min);¿VOY?
-VIERNES;EL BOSQUE;RBVENGE & CAOS!;22/08/2024 19:30;22/08/2024 20:10;40;FALSO
-VIERNES;EL VALLE;G LA SOSITA;22/08/2024 19:40;22/08/2024 20:05;25;FALSO
-VIERNES;EL VALLE;WEST SRK;22/08/2024 20:15;22/08/2024 20:45;30;FALSO
-VIERNES;GALLERY;SECRET 20:10;22/08/2024 20:10;22/08/2024 20:25;15;FALSO
-VIERNES;EL BOSQUE;BIBERON;22/08/2024 20:30;22/08/2024 21:00;30;FALSO
-VIERNES;EL VALLE;ODDLIQUOR;22/08/2024 21:00;22/08/2024 22:00;60;FALSO
-VIERNES;EL BOSQUE;XIYO & FERNANDEZZ;22/08/2024 21:30;22/08/2024 22:30;60;FALSO
-VIERNES;EL VALLE;MUSHKAA;22/08/2024 22:30;22/08/2024 23:30;60;FALSO
-VIERNES;GALLERY;SECRET 22:40;22/08/2024 22:40;22/08/2024 22:55;15;FALSO
-VIERNES;EL BOSQUE;NSQK;22/08/2024 23:00;23/08/2024 0:00;60;FALSO
-VIERNES;LA CARPA;TURROBABY;22/08/2024 23:30;23/08/2024 0:25;55;FALSO
-VIERNES;EL VALLE;JUDELINE;23/08/2024 0:00;23/08/2024 1:00;60;FALSO
-VIERNES;EL BOSQUE;LOVE YI;23/08/2024 0:30;23/08/2024 1:30;60;FALSO
-VIERNES;LA CARPA;ZELL;23/08/2024 0:30;23/08/2024 1:25;55;FALSO
-VIERNES;EL VALLE;RALPHIE CHOO;23/08/2024 1:30;23/08/2024 2:30;60;FALSO
-VIERNES;LA CARPA;SWAGGERBOYZ;23/08/2024 1:30;23/08/2024 2:25;55;FALSO
-VIERNES;EL BOSQUE;LA BLACKIE;23/08/2024 2:00;23/08/2024 3:00;60;FALSO
-VIERNES;LA CARPA;LORNA;23/08/2024 2:30;23/08/2024 3:25;55;FALSO
-VIERNES;EL VALLE;ROJUU;23/08/2024 3:00;23/08/2024 4:00;60;FALSO
-VIERNES;EL BOSQUE;GUXO;23/08/2024 3:30;23/08/2024 4:30;60;FALSO
-VIERNES;LA CARPA;LOS XAVALES;23/08/2024 3:30;23/08/2024 4:30;60;FALSO
-VIERNES;EL VALLE;SELECTA;23/08/2024 4:10;23/08/2024 5:30;80;FALSO
-VIERNES;LA CARPA;LAS VERDUNCH;23/08/2024 4:30;23/08/2024 5:30;60;FALSO
-VIERNES;EL BOSQUE;BLACKCREAM;23/08/2024 5:00;23/08/2024 6:00;60;FALSO
-VIERNES;EL VALLE;LUCÍA REINA;23/08/2024 5:30;23/08/2024 6:30;60;FALSO
-VIERNES;LA CARPA;VIRTUAL FLAVOR B2B EL VIVI;23/08/2024 5:30;23/08/2024 6:30;60;FALSO
-SABADO;GALLERY;SECRET 18:40;23/08/2024 18:40;23/08/2024 18:55;15;FALSO
-SABADO;EL BOSQUE;BROCKI;23/08/2024 19:00;23/08/2024 19:30;30;FALSO
-SABADO;EL VALLE;BLUU;23/08/2024 19:20;23/08/2024 19:55;35;FALSO
-SABADO;EL BOSQUE;LADIFERENCIA2006;23/08/2024 19:30;23/08/2024 20:00;30;FALSO
-SABADO;EL VALLE;D. VALENTINO;23/08/2024 20:00;23/08/2024 21:00;60;FALSO
-SABADO;GALLERY;SECRET 20:10;23/08/2024 20:10;23/08/2024 20:25;15;FALSO
-SABADO;EL BOSQUE;GRETA;23/08/2024 20:30;23/08/2024 21:15;45;FALSO
-SABADO;EL VALLE;JUICY BAE;23/08/2024 21:20;23/08/2024 22:20;60;FALSO
-SABADO;GALLERY;SECRET 21:40;23/08/2024 21:40;23/08/2024 21:55;15;FALSO
-SABADO;EL BOSQUE;TEO LUCADAMO;23/08/2024 22:00;23/08/2024 23:00;60;FALSO
-SABADO;EL VALLE;SECRET SHOWCASE;23/08/2024 22:30;23/08/2024 22:50;20;FALSO
-SABADO;LA CARPA;EL VIRTUAL;23/08/2024 22:30;23/08/2024 23:25;55;FALSO
-SABADO;EL BOSQUE;VEN'NUS;23/08/2024 23:30;24/08/2024 0:30;60;FALSO
-SABADO;LA CARPA;MDA;23/08/2024 23:30;24/08/2024 0:25;55;FALSO
-SABADO;EL VALLE;BB TRICKZ;23/08/2024 23:00;24/08/2024 0:00;60;FALSO
-SABADO;LA CARPA;METRIKA;24/08/2024 0:30;24/08/2024 1:25;55;FALSO
-SABADO;EL VALLE;MVRK;24/08/2024 0:30;24/08/2024 1:30;60;FALSO
-SABADO;EL BOSQUE;ULTRALÁGRIMA;24/08/2024 1:00;24/08/2024 2:00;60;FALSO
-SABADO;LA CARPA;NEO PISTEA;24/08/2024 1:30;24/08/2024 2:25;55;FALSO
-SABADO;EL VALLE;RUSOWSKY;24/08/2024 2:00;24/08/2024 3:00;60;FALSO
-SABADO;LA CARPA;ALBANY;24/08/2024 2:30;24/08/2024 3:25;55;FALSO
-SABADO;EL BOSQUE;EL BUGG;24/08/2024 2:45;24/08/2024 3:30;45;FALSO
-SABADO;EL VALLE;LEÏTI;24/08/2024 3:30;24/08/2024 4:30;60;FALSO
-SABADO;LA CARPA;MAO MOCTEZUMA;24/08/2024 3:30;24/08/2024 4:30;60;FALSO
-SABADO;EL BOSQUE;RALY;24/08/2024 4:00;24/08/2024 5:00;60;FALSO
-SABADO;LA CARPA;SITA;24/08/2024 4:30;24/08/2024 5:30;60;FALSO
-SABADO;EL VALLE;KABASAKI;24/08/2024 4:40;24/08/2024 6:00;80;FALSO
-SABADO;EL BOSQUE;CASA PEPA;24/08/2024 5:00;24/08/2024 6:30;90;FALSO
-SABADO;LA CARPA;NADDDOT B2B BEXNIL;24/08/2024 5:30;24/08/2024 6:30;60;FALSO
-SABADO;EL VALLE;SNEAKY WH;24/08/2024 6:00;24/08/2024 7:00;60;FALSO
-DOMINGO;GALLERY;SECRET 18:40;24/08/2024 18:40;24/08/2024 18:55;15;FALSO
-DOMINGO;EL VALLE;JIME;24/08/2024 19:00;24/08/2024 19:30;30;FALSO
-DOMINGO;EL BOSQUE;TK MAMI;24/08/2024 19:00;24/08/2024 19:30;30;FALSO
-DOMINGO;EL BOSQUE;ETHANUNO;24/08/2024 19:30;24/08/2024 20:00;30;FALSO
-DOMINGO;EL VALLE;NICO MISERIA;24/08/2024 19:45;24/08/2024 20:45;60;FALSO
-DOMINGO;GALLERY;SECRET 20:10;24/08/2024 20:10;24/08/2024 20:25;15;FALSO
-DOMINGO;EL BOSQUE;ÇANTAMARTA;24/08/2024 20:30;24/08/2024 21:30;60;FALSO
-DOMINGO;EL VALLE;L'HAINE;24/08/2024 21:15;24/08/2024 22:15;60;FALSO
-DOMINGO;GALLERY;SECRET 21:40;24/08/2024 21:40;24/08/2024 21:55;15;FALSO
-DOMINGO;EL BOSQUE;BARRY B;24/08/2024 22:00;24/08/2024 23:00;60;FALSO
-DOMINGO;LA CARPA;PABLO CHILL-E;24/08/2024 22:30;24/08/2024 23:25;55;FALSO
-DOMINGO;EL VALLE;DISOBEY;24/08/2024 22:45;24/08/2024 23:45;60;FALSO
-DOMINGO;EL BOSQUE;LUA DE SANTANA;24/08/2024 23:30;25/08/2024 0:30;60;FALSO
-DOMINGO;LA CARPA;ARDO440;24/08/2024 23:30;25/08/2024 0:25;55;FALSO
-DOMINGO;EL VALLE;STICKY M.A.;25/08/2024 0:15;25/08/2024 1:15;60;FALSO
-DOMINGO;LA CARPA;MIDAS ALONSO;25/08/2024 0:30;25/08/2024 1:25;55;FALSO
-DOMINGO;EL BOSQUE;JOHN POLLÓN;25/08/2024 1:00;25/08/2024 2:00;60;FALSO
-DOMINGO;LA CARPA;FAENNA;25/08/2024 1:30;25/08/2024 2:25;55;FALSO
-DOMINGO;EL VALLE;YUNG BEEF;25/08/2024 2:00;25/08/2024 3:00;60;FALSO
-DOMINGO;EL BOSQUE;NERVE AGENT;25/08/2024 2:30;25/08/2024 3:30;60;FALSO
-DOMINGO;LA CARPA;GRECAS;25/08/2024 2:30;25/08/2024 3:25;55;FALSO
-DOMINGO;EL VALLE;BON CALSO;25/08/2024 3:30;25/08/2024 4:30;60;FALSO
-DOMINGO;LA CARPA;LOUIS AMOEBA;25/08/2024 3:30;25/08/2024 4:30;60;FALSO
-DOMINGO;EL BOSQUE;EUSKOPRINCESS;25/08/2024 4:00;25/08/2024 5:00;60;FALSO
-DOMINGO;LA CARPA;PARKINEOS;25/08/2024 4:30;25/08/2024 5:30;60;FALSO
-DOMINGO;EL VALLE;SKINYZ;25/08/2024 4:40;25/08/2024 6:00;80;FALSO
-DOMINGO;EL BOSQUE;ROYCE ROLO;25/08/2024 5:00;25/08/2024 6:00;60;FALSO
-DOMINGO;LA CARPA;AMYGDALA;25/08/2024 5:30;25/08/2024 6:30;60;FALSO
-DOMINGO;EL VALLE;CENCII;25/08/2024 6:00;25/08/2024 7:00;60;FALSO
-        `;
-        
-        let scheduleData = []; let conflictingEventIds = new Set(); let voteData = {}; let currentVoteFilter = 'TOTAL';
-        const STAGES = ['EL BOSQUE', 'EL VALLE', 'LA CARPA', 'GALLERY']; const DAY_ORDER = { 'VIERNES': 1, 'SABADO': 2, 'DOMINGO': 3 }; const PIXELS_PER_HOUR = 80; const DAY_START_HOUR = 18;
-        const LOCAL_STORAGE_KEY = 'myFestivalSchedule'; const LOCAL_VOTES_KEY = 'myFestivalVotes';
-        const { jsPDF } = window.jspdf; const MODAL_PIXELS_PER_HOUR = 50;
-        const normalizeString = (str) => str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); const parseDate = (dateTimeStr) => { const [datePart, timePart] = dateTimeStr.split(' '); const [day, month, year] = datePart.split('/'); const [hours, minutes] = timePart.split(':'); return new Date(year, month - 1, day, hours, minutes); };
-        
-        document.addEventListener('DOMContentLoaded', () => { let idCounter = 0; scheduleData = txtData.trim().split('\n').slice(1).map(line => { const parts = line.split(';').map(p => p.trim()); if (parts.length < 7) return null; const [day, stage, artist, startTimeStr, endTimeStr, , ] = parts; return { id: idCounter++, day: day.toUpperCase(), stage, artist, startTime: parseDate(startTimeStr), endTime: parseDate(endTimeStr), voy: false }; }).filter(Boolean); loadMySchedule(); ['viernes', 'sabado', 'domingo'].forEach(generateTimelineView); listenForVotes(); });
+    <header>
+        <div class="header-left">
+            <div class="brand" onclick="window.location.reload()">RL '25</div>
+        </div>
 
-        function generateTimelineView(dayId) { const container = document.getElementById(`timeline-container-${dayId}`); const dayData = scheduleData.filter(e => e.day.toLowerCase() === dayId); if (!dayData.length) { return; } let timeAxisHTML = `<div class="time-axis-header"></div>`; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } const timeAxisContainer = document.createElement('div'); timeAxisContainer.className = 'time-axis'; timeAxisContainer.innerHTML = timeAxisHTML; let stagesContainer = document.createElement('div'); stagesContainer.className = 'stages-container'; stagesContainer.style.height = `${14 * PIXELS_PER_HOUR}px`; STAGES.forEach(stage => { const stageColumn = document.createElement('div'); const stageClassName = `stage-col-${stage.toLowerCase().replace(/ /g, '-')}`; stageColumn.className = `stage-column ${stageClassName}`; stageColumn.innerHTML = `<div class="stage-header">${stage}</div>`; stagesContainer.appendChild(stageColumn); }); container.innerHTML = ''; container.appendChild(timeAxisContainer); container.appendChild(stagesContainer); const dayStartDate = new Date(dayData[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const myVotes = getMyVotes(); STAGES.forEach((stage, stageIndex) => { const stageColumn = container.querySelectorAll('.stage-column')[stageIndex]; const stageEvents = dayData.filter(e => e.stage === stage).sort((a, b) => a.startTime - b.startTime); stageEvents.forEach(event => { const top = ((event.startTime - dayStartDate) / 3600000) * PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * PIXELS_PER_HOUR; const block = document.createElement('div'); block.className = `artist-block stage-${event.stage.toLowerCase().replace(/ /g, '-')}`; if (event.voy) block.classList.add('voy'); block.dataset.eventId = event.id; block.style.cssText = `top:${top}px; height:${height}px;`; const hasVoted = myVotes.has(String(event.id)); 
-        block.setAttribute('onclick', 'window.toggleVoy(this)');
-        block.innerHTML = ` <div class="artist-block-inner"> <div class="artist-details"> <span class="artist-name">${event.artist}</span> <span class="artist-times">${event.startTime.toTimeString().substring(0,5)}-${event.endTime.toTimeString().substring(0,5)}</span> </div> <div class="vote-area"> <span class="vote-button ${hasVoted ? 'voted' : ''}" onclick="event.stopPropagation(); window.toggleVote(this, ${event.id})">${hasVoted ? '♥' : '♡'}</span> <span class="vote-counter" id="vote-count-${event.id}">0</span> </div> </div>`; 
-        stageColumn.appendChild(block); }); }); }
-        
-        function getMyVotes() { return new Set(JSON.parse(localStorage.getItem(LOCAL_VOTES_KEY) || '[]')); }
-        function saveMyVotes(votesSet) { localStorage.setItem(LOCAL_VOTES_KEY, JSON.stringify([...votesSet])); }
-        async function toggleVote(buttonEl, eventId) { const event = scheduleData.find(e => e.id === eventId); if (!event) return; const myVotes = getMyVotes(); const hasVoted = myVotes.has(String(eventId)); const { db, doc, setDoc, increment } = window.firebase; const docRef = doc(db, "concert_votes", String(eventId)); const incrementValue = hasVoted ? -1 : 1; if (hasVoted) { myVotes.delete(String(eventId)); } else { myVotes.add(String(eventId)); } saveMyVotes(myVotes); buttonEl.classList.toggle('voted', !hasVoted); buttonEl.innerHTML = !hasVoted ? '♥' : '♡'; try { await setDoc(docRef, { artist: event.artist, stage: event.stage, day: event.day, startTime: event.startTime, vote_count: increment(incrementValue) }, { merge: true }); } catch (error) { console.error("Error al actualizar el voto: ", error); } }
-        function listenForVotes() { const { db, collection, onSnapshot } = window.firebase; onSnapshot(collection(db, "concert_votes"), (snapshot) => { snapshot.forEach(doc => { voteData[doc.id] = doc.data(); const counterEl = document.getElementById(`vote-count-${doc.id}`); if (counterEl) counterEl.innerText = doc.data().vote_count || 0; }); renderVotesTab(); }); }
-        function setVoteFilter(filter) { currentVoteFilter = filter; renderVotesTab(); }
-        function renderVotesTab() { const container = document.getElementById('votos'); const filters = ['TOTAL', 'VIERNES', 'SABADO', 'DOMINGO']; const tabsHTML = `<div class="vote-filter-tabs">${filters.map(f => `<div class="vote-filter-tab ${currentVoteFilter === f ? 'active' : ''}" onclick="window.setVoteFilter('${f}')">${f === 'TOTAL' ? 'TOTALES' : f}</div>`).join('')}</div>`; let votesToDisplay = Object.entries(voteData); if (currentVoteFilter !== 'TOTAL') { votesToDisplay = votesToDisplay.filter(([id, vote]) => vote.day === currentVoteFilter); } const sortedVotes = votesToDisplay.filter(([id, vote]) => vote.vote_count > 0).sort(([, a], [, b]) => b.vote_count - a.vote_count); let listHTML; if (sortedVotes.length === 0) { listHTML = '<p style="text-align:center;">No hay votos para mostrar en esta vista.</p>'; } else { const stageColors = {'EL BOSQUE': 'var(--nord7)', 'EL VALLE': 'var(--nord15)', 'LA CARPA': 'var(--nord12)', 'GALLERY': 'var(--nord13)'}; const myVotes = getMyVotes(); listHTML = sortedVotes.map(([eventId, vote]) => { const time = vote.startTime.toDate(); const timeStr = time.toTimeString().substring(0,5); const userHasVoted = myVotes.has(eventId); const myVoteIcon = userHasVoted ? '<span class="my-vote-icon">♥</span>' : ''; return `<div class="vote-entry" style="border-left-color: ${stageColors[vote.stage] || 'var(--nord3)'};"><div class="vote-count">${vote.vote_count}</div><div class="vote-details"><div class="vote-artist">${vote.artist} ${myVoteIcon}</div><div class="vote-time-stage">${vote.day} a las ${timeStr} - ${vote.stage}</div></div></div>`; }).join(''); } container.innerHTML = tabsHTML + listHTML; }
-        function toggleVoy(blockEl) { const event = scheduleData.find(e => e.id === +blockEl.dataset.eventId); if (event) { event.voy = !event.voy; blockEl.classList.toggle('voy'); saveMySchedule(); updateConflictHighlights(); } }
-        function saveMySchedule() { const myVoyEventIds = scheduleData.filter(event => event.voy).map(event => event.id); localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(myVoyEventIds)); }
-        function loadMySchedule() { const savedData = localStorage.getItem(LOCAL_STORAGE_KEY); if (!savedData) return; const savedIds = new Set(JSON.parse(savedData)); scheduleData.forEach(event => event.voy = savedIds.has(event.id)); updateConflictHighlights(); }
-        function clearMySchedule() { if (confirm('¿Estás seguro de que quieres eliminar tus selecciones personales? Esto NO afectará a los votos públicos.')) { scheduleData.forEach(event => event.voy = false); document.querySelectorAll('.artist-block.voy').forEach(block => block.classList.remove('voy')); updateConflictHighlights(); saveMySchedule(); } }
-        function updateConflictHighlights() { conflictingEventIds.clear(); const myEvents = scheduleData.filter(e => e.voy); for (let i = 0; i < myEvents.length; i++) { for (let j = i + 1; j < myEvents.length; j++) { const eventA = myEvents[i], eventB = myEvents[j]; if (eventA.startTime < eventB.endTime && eventA.endTime > eventB.startTime) { conflictingEventIds.add(eventA.id); conflictingEventIds.add(eventB.id); } } } document.querySelectorAll('.artist-block').forEach(block => { block.classList.toggle('conflicts', conflictingEventIds.has(+block.dataset.eventId)); }); }
-        function showDay(day) { const normalizedDay = normalizeString(day); document.querySelectorAll('.schedule').forEach(s => s.classList.remove('active')); document.getElementById(normalizedDay).classList.add('active'); document.querySelectorAll('.day-tab').forEach(t => t.classList.toggle('active', normalizeString(t.dataset.day) === normalizedDay)); }
-        const { getCssVarForStage, generateListHTML, generateTimelineHTML, renderModalTimelineForDay, downloadSchedulePDF, openModal, closeModal, openMyScheduleList, openMyScheduleTimeline } = (() => {
-            const modal = document.getElementById('my-schedule-modal'), modalContentEl = modal.querySelector('.modal-content'), modalTitle = document.getElementById('modal-title'), modalContent = document.getElementById('my-schedule-content');
-            const getCssVarForStage = stage => ({'EL BOSQUE': '--nord7', 'EL VALLE': '--nord15', 'LA CARPA': '--nord12', 'GALLERY': '--nord13'}[stage]);
-            const generateListHTML = (myEvents) => { myEvents.sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); let currentDay = ''; return myEvents.map(event => { const dayHeader = event.day !== currentDay ? `<div class="entry-day">${currentDay = event.day}</div>` : ''; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; return `<div class="entry ${conflictClass}" style="border-left-color: var(${getCssVarForStage(event.stage)})"><div class="entry-details"><div class="entry-time">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</div><div class="entry-artist">${event.artist}<span class="conflict-icon">⚠️</span></div><div class="entry-stage">${event.stage}</div></div></div>`; }).join(''); }
-            const renderModalTimelineForDay = (day) => { const contentContainer = document.getElementById('modal-timeline-content'); const dayEvents = scheduleData.filter(e => e.voy && e.day === day); if (!dayEvents.length) { contentContainer.innerHTML = "<p>No tienes conciertos seleccionados para este día.</p>"; return; } let timeAxisHTML = ''; for (let h = DAY_START_HOUR; h < (DAY_START_HOUR + 14); h++) { timeAxisHTML += `<div class="modal-time-label">${String(h % 24).padStart(2, '0')}:00</div>`; } dayEvents.sort((a, b) => a.startTime - b.startTime); const columns = []; dayEvents.forEach(event => { let placed = false; for (let i = 0; i < columns.length; i++) { if (columns[i].every(e => event.startTime >= e.endTime || event.endTime <= e.startTime)) { columns[i].push(event); event.column = i; placed = true; break; } } if (!placed) { event.column = columns.length; columns.push([event]); } }); const dayStartDate = new Date(dayEvents[0].startTime); dayStartDate.setHours(DAY_START_HOUR, 0, 0, 0); const eventBlocks = dayEvents.map(event => { const top = ((event.startTime - dayStartDate) / 3600000) * MODAL_PIXELS_PER_HOUR; const height = ((event.endTime - event.startTime) / 3600000) * MODAL_PIXELS_PER_HOUR; const conflictClass = conflictingEventIds.has(event.id) ? 'conflicts' : ''; const stageColorVar = getCssVarForStage(event.stage); const indentStep = 12; const baseWidth = 95; const left = event.column * indentStep; const width = baseWidth - left; const overlapClass = event.column > 0 ? 'overlapped' : ''; return `<div class="modal-event-block ${conflictClass} ${overlapClass}" style="top:${top}px; height:${height}px; width:${width}%; left:${left}%; z-index:${10 + event.column}; background-color: var(${stageColorVar});"><span class="artist-name">${event.artist}</span><span class="artist-times">${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}</span></div>`; }).join(''); contentContainer.innerHTML = `<div class="modal-timeline-wrapper"><div class="modal-time-axis">${timeAxisHTML}</div><div class="modal-events-area" style="min-height:${14 * MODAL_PIXELS_PER_HOUR}px"><div class="modal-events-container" style="position:relative; height:100%">${eventBlocks}</div></div></div>`; }
-            const generateTimelineHTML = (myEvents) => { const eventsByDay = myEvents.reduce((acc, event) => { (acc[event.day] = acc[event.day] || []).push(event); return acc; }, {}); const sortedDays = Object.keys(eventsByDay).sort((a,b) => DAY_ORDER[a] - DAY_ORDER[b]); if (sortedDays.length === 0) return ''; let selectorHTML = `<div class="modal-controls"><label for="day-selector">Selecciona un día:</label><select id="day-selector" onchange="window.renderModalTimelineForDay(this.value)">`; sortedDays.forEach(day => { selectorHTML += `<option value="${day}">${day}</option>`; }); selectorHTML += `</select></div><div id="modal-timeline-content"></div>`; setTimeout(() => { if (sortedDays.length > 0) renderModalTimelineForDay(sortedDays[0]); }, 0); return selectorHTML; }
-            const downloadSchedulePDF = () => { const myEvents = scheduleData.filter(e => e.voy).sort((a,b) => (DAY_ORDER[a.day] - DAY_ORDER[b.day]) || (a.startTime - b.startTime)); if (myEvents.length === 0) { alert("No has seleccionado ningún concierto en 'Mi Horario' para descargar."); return; } const doc = new jsPDF('p', 'mm', 'a4'); const pageHeight = doc.internal.pageSize.height; const pageWidth = doc.internal.pageSize.width; const margin = 15; let y = margin + 10; let currentDay = ''; const stageColors = { 'EL BOSQUE': '#8FBCBB', 'EL VALLE': '#B48EAD', 'LA CARPA': '#D08770', 'GALLERY': '#EBCB8B' }; const conflictColor = '#BF616A'; doc.setFontSize(20); doc.setFont('helvetica', 'bold'); doc.text('Mi Horario Personal del Festival', pageWidth / 2, margin, { align: 'center' }); y += 10; myEvents.forEach(event => { if (y > pageHeight - margin) { doc.addPage(); y = margin; } if(event.day !== currentDay) { currentDay = event.day; y += 10; if (y > pageHeight - margin) { doc.addPage(); y = margin; } doc.setFontSize(16); doc.setFont('helvetica', 'bold'); doc.text(currentDay, margin, y); y += 7; doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y); y += 8; } const timeStr = `${event.startTime.toTimeString().substring(0,5)} - ${event.endTime.toTimeString().substring(0,5)}`; let artistStr = event.artist; const stageStr = event.stage; const isConflict = conflictingEventIds.has(event.id); doc.setFontSize(11); const color = stageColors[event.stage] || '#4C566A'; doc.setFillColor(color); doc.rect(margin, y - 4, 3, 6, 'F'); doc.setFont('helvetica', 'bold'); doc.text(timeStr, margin + 5, y); if (isConflict) { artistStr = '[!] ' + artistStr; doc.setTextColor(conflictColor); } else { doc.setTextColor(0, 0, 0); } doc.setFont('helvetica', 'normal'); doc.text(artistStr, margin + 40, y); doc.setTextColor(0, 0, 0); doc.setTextColor(100); doc.text(stageStr, pageWidth - margin, y, { align: 'right' }); doc.setTextColor(0); y += 10; }); doc.save('mi_horario_personal.pdf'); }
-            const openModal = (title, contentGenerator) => { const myEvents = scheduleData.filter(e => e.voy); modalTitle.textContent = title; let content = myEvents.length === 0 ? '<p>No has añadido conciertos a tu horario personal.</p>' : contentGenerator(myEvents); if (myEvents.length > 0 && conflictingEventIds.size > 0) { content += '<p class="modal-legend" style="text-align:center; margin-top:15px; font-size:0.9em;">⚠️ Indica un conflicto de horario con otro concierto seleccionado.</p>'; } modalContent.innerHTML = content; modal.style.display = 'block'; }
-            const closeModal = () => { modal.style.display = 'none'; modalContentEl.classList.remove('list-view-active', 'graphic-view-active'); modalContent.classList.remove('list-view-active'); };
-            window.onclick = e => { if (e.target == modal) closeModal(); };
-            const openMyScheduleList = () => { openModal('Mi Horario (Lista)', generateListHTML); modalContentEl.classList.remove('graphic-view-active'); modalContentEl.classList.add('list-view-active'); modalContent.classList.add('list-view-active'); };
-            const openMyScheduleTimeline = () => { openModal('Mi Horario (Gráfico)', generateTimelineHTML); modalContentEl.classList.remove('list-view-active'); modalContentEl.classList.add('graphic-view-active'); modalContent.classList.remove('list-view-active'); };
-            return { getCssVarForStage, generateListHTML, generateTimelineHTML, renderModalTimelineForDay, downloadSchedulePDF, openModal, closeModal, openMyScheduleList, openMyScheduleTimeline };
-        })();
-        Object.assign(window, {
-            showDay, toggleVoy, toggleVote, clearMySchedule, setVoteFilter,
-            openMyScheduleList, openMyScheduleTimeline, downloadSchedulePDF, closeModal,
-            renderModalTimelineForDay
+        <div class="header-actions">
+            <!-- BUSCADOR -->
+            <div class="search-wrapper" id="search-wrapper">
+                <div class="search-bar">
+                    <input type="text" class="search-input" id="smart-search" placeholder="ARTISTA..." autocomplete="off">
+                </div>
+                <button class="icon-btn magnetic-btn" onclick="toggleSearch()">
+                    <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                </button>
+                <div class="search-results" id="search-results"></div>
+            </div>
+
+            <button class="icon-btn magnetic-btn" onclick="toggleInfo()">
+                <!-- Info Icon -->
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            </button>
+            <button class="icon-btn magnetic-btn" id="theme-toggle-btn" onclick="toggleTheme()"></button>
+            <button class="icon-btn magnetic-btn" onclick="resetRoute()">
+                <svg viewBox="0 0 24 24"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="fab-print-only magnetic-btn" onclick="printRoute()">🖨️</div>
+
+    <div id="print-area"></div>
+
+    <div class="main-viewport">
+        <div class="stage-headers" id="stage-headers"></div>
+        <div class="grid-body" id="main-grid"></div>
+    </div>
+
+    <div class="controls-bar" id="day-controls"></div>
+
+<script>
+const schedule = [
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "RBVENGE & CAOS!", "start": "19:30", "end": "20:10" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "G LA SOSITA", "start": "19:40", "end": "20:05" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "WEST SRK", "start": "20:15", "end": "20:45" },
+  { "day": "VIERNES", "stage": "GALLERY", "artist": "SECRET 20:10", "start": "20:10", "end": "20:25" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "BIBERON", "start": "20:30", "end": "21:00" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "ODDLIQUOR", "start": "21:00", "end": "22:00" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "XIYO & FERNANDEZZ", "start": "21:30", "end": "22:30" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "MUSHKAA", "start": "22:30", "end": "23:30" },
+  { "day": "VIERNES", "stage": "GALLERY", "artist": "SECRET 22:40", "start": "22:40", "end": "22:55" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "NSQK", "start": "23:00", "end": "00:00" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "TURROBABY", "start": "23:30", "end": "00:25" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "JUDELINE", "start": "00:00", "end": "01:00" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "LOVE YI", "start": "00:30", "end": "01:30" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "ZELL", "start": "00:30", "end": "01:25" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "RALPHIE CHOO", "start": "01:30", "end": "02:30" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "SWAGGERBOYZ", "start": "01:30", "end": "02:25" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "LA BLACKIE", "start": "02:00", "end": "03:00" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "LORNA", "start": "02:30", "end": "03:25" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "ROJUU", "start": "03:00", "end": "04:00" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "GUXO", "start": "03:30", "end": "04:30" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "LOS XAVALES", "start": "03:30", "end": "04:30" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "SELECTA", "start": "04:10", "end": "05:30" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "LAS VERDUNCH", "start": "04:30", "end": "05:30" },
+  { "day": "VIERNES", "stage": "EL BOSQUE", "artist": "BLACKCREAM", "start": "05:00", "end": "06:00" },
+  { "day": "VIERNES", "stage": "EL VALLE", "artist": "LUCÍA REINA", "start": "05:30", "end": "06:30" },
+  { "day": "VIERNES", "stage": "LA CARPA", "artist": "VIRTUAL FLAVOR B2B EL VIVI", "start": "05:30", "end": "06:30" },
+  { "day": "SABADO", "stage": "GALLERY", "artist": "SECRET 18:40", "start": "18:40", "end": "18:55" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "BROCKI", "start": "19:00", "end": "19:30" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "BLUU", "start": "19:20", "end": "19:55" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "LADIFERENCIA2006", "start": "19:30", "end": "20:00" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "D. VALENTINO", "start": "20:00", "end": "21:00" },
+  { "day": "SABADO", "stage": "GALLERY", "artist": "SECRET 20:10", "start": "20:10", "end": "20:25" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "GRETA", "start": "20:30", "end": "21:15" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "JUICY BAE", "start": "21:20", "end": "22:20" },
+  { "day": "SABADO", "stage": "GALLERY", "artist": "SECRET 21:40", "start": "21:40", "end": "21:55" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "TEO LUCADAMO", "start": "22:00", "end": "23:00" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "SECRET SHOWCASE", "start": "22:30", "end": "22:50" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "EL VIRTUAL", "start": "22:30", "end": "23:25" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "BB TRICKZ", "start": "23:00", "end": "00:00" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "VEN'NUS", "start": "23:30", "end": "00:30" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "MDA", "start": "23:30", "end": "00:25" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "MVRK", "start": "00:30", "end": "01:30" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "METRIKA", "start": "00:30", "end": "01:25" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "ULTRALÁGRIMA", "start": "01:00", "end": "02:00" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "NEO PISTEA", "start": "01:30", "end": "02:25" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "RUSOWSKY", "start": "02:00", "end": "03:00" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "ALBANY", "start": "02:30", "end": "03:25" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "EL BUGG", "start": "02:45", "end": "03:30" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "LEÏTI", "start": "03:30", "end": "04:30" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "MAO MOCTEZUMA", "start": "03:30", "end": "04:30" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "RALY", "start": "04:00", "end": "05:00" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "SITA", "start": "04:30", "end": "05:30" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "KABASAKI", "start": "04:40", "end": "06:00" },
+  { "day": "SABADO", "stage": "EL BOSQUE", "artist": "CASA PEPA", "start": "05:00", "end": "06:30" },
+  { "day": "SABADO", "stage": "LA CARPA", "artist": "NADDDOT B2B BEXNIL", "start": "05:30", "end": "06:30" },
+  { "day": "SABADO", "stage": "EL VALLE", "artist": "SNEAKY WH", "start": "06:00", "end": "07:00" },
+  { "day": "DOMINGO", "stage": "GALLERY", "artist": "SECRET 18:40", "start": "18:40", "end": "18:55" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "JIME", "start": "19:00", "end": "19:30" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "TK MAMI", "start": "19:00", "end": "19:30" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "ETHANUNO", "start": "19:30", "end": "20:00" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "NICO MISERIA", "start": "19:45", "end": "20:45" },
+  { "day": "DOMINGO", "stage": "GALLERY", "artist": "SECRET 20:10", "start": "20:10", "end": "20:25" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "ÇANTAMARTA", "start": "20:30", "end": "21:30" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "L'HAINE", "start": "21:15", "end": "22:15" },
+  { "day": "DOMINGO", "stage": "GALLERY", "artist": "SECRET 21:40", "start": "21:40", "end": "21:55" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "BARRY B", "start": "22:00", "end": "23:00" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "PABLO CHILL-E", "start": "22:30", "end": "23:25" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "DISOBEY", "start": "22:45", "end": "23:45" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "LUA DE SANTANA", "start": "23:30", "end": "00:30" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "ARDO440", "start": "23:30", "end": "00:25" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "STICKY M.A.", "start": "00:15", "end": "01:15" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "MIDAS ALONSO", "start": "00:30", "end": "01:25" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "JOHN POLLÓN", "start": "01:00", "end": "02:00" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "FAENNA", "start": "01:30", "end": "02:25" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "YUNG BEEF", "start": "02:00", "end": "03:00" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "NERVE AGENT", "start": "02:30", "end": "03:30" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "GRECAS", "start": "02:30", "end": "03:25" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "BON CALSO", "start": "03:30", "end": "04:30" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "LOUIS AMOEBA", "start": "03:30", "end": "04:30" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "EUSKOPRINCESS", "start": "04:00", "end": "05:00" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "PARKINEOS", "start": "04:30", "end": "05:30" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "SKINYZ", "start": "04:40", "end": "06:00" },
+  { "day": "DOMINGO", "stage": "EL BOSQUE", "artist": "ROYCE ROLO", "start": "05:00", "end": "06:00" },
+  { "day": "DOMINGO", "stage": "LA CARPA", "artist": "AMYGDALA", "start": "05:30", "end": "06:30" },
+  { "day": "DOMINGO", "stage": "EL VALLE", "artist": "CENCII", "start": "06:00", "end": "07:00" }
+];
+
+const days = ["VIERNES", "SABADO", "DOMINGO"];
+const stages = ["EL VALLE", "EL BOSQUE", "LA CARPA", "GALLERY"];
+let activeDay = "VIERNES";
+let favorites = JSON.parse(localStorage.getItem('rvl_21_favs')) || [];
+let searchResults = [];
+let searchIndex = -1;
+let lenis; 
+
+const startHour = 18; 
+const totalHours = 14; 
+const pxPerMin = 2;
+
+function getMinutesFromStart(timeStr) {
+    const [h, m] = timeStr.split(':').map(Number);
+    let adjH = h;
+    if (h < 10) adjH = h + 24;
+    return (adjH * 60 + m) - (startHour * 60);
+}
+function getActId(act) { return `${act.artist}|${act.day}`; }
+function normalizeStr(str) {
+    return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/['"]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+window.onload = () => {
+    playTypewriter();
+    initWebGL();
+    initGrid();
+    initMagnetic();
+    initFavicon();
+    
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    const iconSun = `<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.93c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm13.48 14.14c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm-13.48.7c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zm14.14-14.14c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41z"/></svg>`;
+    const iconMoon = `<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>`;
+
+    if(localStorage.getItem('rvl_theme') === 'light') {
+        document.body.setAttribute('data-theme', 'light');
+        themeBtn.innerHTML = iconMoon;
+    } else {
+        themeBtn.innerHTML = iconSun;
+    }
+
+    if(typeof Lenis !== 'undefined'){
+        try {
+            lenis = new Lenis();
+            function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
+            requestAnimationFrame(raf);
+        } catch(e) {}
+    }
+
+    const searchInput = document.getElementById('smart-search');
+    searchInput.addEventListener('input', handleSearch);
+    searchInput.addEventListener('keydown', handleSearchNav);
+    
+    document.addEventListener('click', (e) => {
+        const wrapper = document.getElementById('search-wrapper');
+        if(wrapper.classList.contains('active') && !e.target.closest('.search-wrapper') && !e.target.closest('.icon-btn')) {
+            toggleSearch();
+        }
+    });
+};
+
+function initMagnetic() {
+    if(window.innerWidth <= 768) return; 
+    const btns = document.querySelectorAll('.icon-btn, .fab');
+    btns.forEach(btn => {
+        btn.addEventListener('mousemove', function(e) {
+            const pos = btn.getBoundingClientRect();
+            const x = e.clientX - pos.left - pos.width / 2;
+            const y = e.clientY - pos.top - pos.height / 2;
+            gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.3, ease: "power2.out" });
         });
-    </script>
+        btn.addEventListener('mouseleave', function(e) {
+            gsap.to(btn, { x: 0, y: 0, duration: 0.6, ease: "elastic.out(1, 0.4)" });
+        });
+    });
+}
+
+function initFavicon() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000'; ctx.fillRect(0,0,64,64);
+    ctx.fillStyle = '#ccff00'; ctx.font = 'bold 40px sans-serif'; ctx.fillText('R', 12, 45);
+    const link = document.createElement('link');
+    link.rel = 'icon'; link.href = canvas.toDataURL();
+    document.head.appendChild(link);
+}
+
+function toggleInfo() {
+    const modal = document.getElementById('info-overlay');
+    if(modal.classList.contains('active')) {
+        modal.classList.remove('active');
+    } else {
+        modal.classList.add('active');
+    }
+}
+
+function closeInfoViaOverlay(e) {
+    // Solo cerrar si el click fue en el fondo (overlay), no en la caja
+    if (e.target.id === 'info-overlay') {
+        toggleInfo();
+    }
+}
+
+function toggleTheme() {
+    const current = document.body.getAttribute('data-theme');
+    const btn = document.getElementById('theme-toggle-btn');
+    const iconSun = `<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.93c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm13.48 14.14c.39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0zm-13.48.7c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41zm14.14-14.14c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41-.39-.39-1.02-.39-1.41 0-.39.39-.39 1.02 0 1.41z"/></svg>`;
+    const iconMoon = `<svg viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>`;
+    gsap.to(btn, { rotation: "+=360", duration: 0.6, ease: "back.out(1.7)" });
+
+    if(current === 'light') {
+        document.body.removeAttribute('data-theme');
+        localStorage.setItem('rvl_theme', 'dark');
+        btn.innerHTML = iconSun;
+    } else {
+        document.body.setAttribute('data-theme', 'light');
+        localStorage.setItem('rvl_theme', 'light');
+        btn.innerHTML = iconMoon;
+    }
+    initGrid();
+}
+
+function toggleSearch() {
+    const wrapper = document.getElementById('search-wrapper');
+    const input = document.getElementById('smart-search');
+    const body = document.body;
+    wrapper.classList.toggle('active');
+    if(wrapper.classList.contains('active')) {
+        body.classList.add('searching');
+        setTimeout(() => input.focus(), 400);
+    } else {
+        body.classList.remove('searching');
+        input.value = '';
+        document.getElementById('search-results').style.display = 'none';
+    }
+}
+
+function playTypewriter() {
+    const text = "RIVERLAND_";
+    const el = document.getElementById('typewriter');
+    let i = 0;
+    function type() {
+        if(i < text.length) { el.textContent += text.charAt(i); i++; setTimeout(type, 70); }
+        else { setTimeout(() => gsap.to('#intro-curtain', { y: '-100%', duration: 1, ease: 'expo.inOut' }), 300); }
+    }
+    type();
+}
+
+function handleSearch() {
+    const input = document.getElementById('smart-search');
+    const dropdown = document.getElementById('search-results');
+    const query = normalizeStr(input.value);
+    dropdown.innerHTML = '';
+    searchIndex = -1;
+    if(query.length < 2) { dropdown.style.display = 'none'; return; }
+    searchResults = schedule.filter(act => normalizeStr(act.artist).includes(query));
+    if(searchResults.length === 0) { dropdown.style.display = 'flex'; dropdown.innerHTML = '<div style="padding:15px; opacity:0.5">NO RESULTS</div>'; return; }
+    dropdown.style.display = 'flex';
+    searchResults.forEach((act, idx) => {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        item.id = `search-item-${idx}`;
+        item.innerHTML = `<div class="search-item-name">${act.artist}</div><div class="search-item-info">${act.day} | ${act.start}</div>`;
+        item.onclick = () => goToArtist(act);
+        dropdown.appendChild(item);
+    });
+}
+
+function handleSearchNav(e) {
+    if (e.key === 'Escape') toggleSearch();
+    const dropdown = document.getElementById('search-results');
+    if (dropdown.style.display === 'none' || searchResults.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); searchIndex = (searchIndex + 1) % searchResults.length; updateSearchSelection(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); searchIndex = (searchIndex - 1 + searchResults.length) % searchResults.length; updateSearchSelection(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if(searchIndex >= 0) goToArtist(searchResults[searchIndex]); }
+}
+
+function updateSearchSelection() {
+    document.querySelectorAll('.search-item').forEach(el => el.classList.remove('selected'));
+    const selectedEl = document.getElementById(`search-item-${searchIndex}`);
+    if(selectedEl) { selectedEl.classList.add('selected'); selectedEl.scrollIntoView({ block: 'nearest' }); }
+}
+
+function goToArtist(act) {
+    toggleSearch();
+    activeDay = act.day;
+    document.getElementById('main-grid').innerHTML = ''; 
+    initGrid();
+    setTimeout(() => {
+        const cards = document.querySelectorAll('.card');
+        let targetCard = null;
+        cards.forEach(c => {
+            if(c.querySelector('.card-artist') && c.querySelector('.card-artist').textContent === act.artist) targetCard = c;
+        });
+        if(targetCard) {
+            const isMobile = window.innerWidth <= 768;
+            const offsetVal = isMobile ? -150 : -window.innerHeight/2 + 100;
+            if(lenis) lenis.scrollTo(targetCard, { offset: offsetVal, duration: 1.5 });
+            else targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.add('blink-active');
+            setTimeout(() => targetCard.classList.remove('blink-active'), 3000);
+        }
+    }, 350);
+}
+
+function initGrid() {
+    const headersEl = document.getElementById('stage-headers');
+    const gridEl = document.getElementById('main-grid');
+    const controlsEl = document.getElementById('day-controls');
+
+    controlsEl.innerHTML = '';
+    days.forEach(day => {
+        const btn = document.createElement('button');
+        btn.className = `day-btn ${day === activeDay ? 'active' : ''}`;
+        btn.textContent = day;
+        btn.onclick = () => { activeDay = day; initGrid(); };
+        controlsEl.appendChild(btn);
+    });
+
+    const isMobile = window.innerWidth <= 768;
+
+    if(!isMobile) {
+        headersEl.innerHTML = '';
+        stages.forEach(st => { headersEl.innerHTML += `<div class="header-cell">${st}</div>`; });
+        gridEl.innerHTML = '';
+        for(let i=1; i < totalHours; i++) {
+            const h = startHour + i;
+            const displayH = h >= 24 ? h - 24 : h;
+            const topY = i * 60 * pxPerMin;
+            const line = document.createElement('div');
+            line.className = 'hour-line';
+            line.style.top = `${topY}px`;
+            line.innerHTML = `<div class="hour-label">${displayH.toString().padStart(2,'0')}:00</div>`;
+            gridEl.appendChild(line);
+        }
+        gridEl.style.height = `${totalHours * 60 * pxPerMin}px`;
+    } else {
+        gridEl.innerHTML = '';
+        gridEl.style.height = 'auto';
+    }
+
+    const dayActs = schedule.filter(s => s.day === activeDay);
+    
+    if(isMobile) {
+        dayActs.sort((a,b) => getMinutesFromStart(a.start) - getMinutesFromStart(b.start));
+        let lastHour = -1;
+        dayActs.forEach(act => {
+            const startMin = getMinutesFromStart(act.start);
+            const currentH = Math.floor(startMin / 60) + startHour;
+            if(currentH !== lastHour) {
+                const dH = currentH >= 24 ? currentH - 24 : currentH;
+                if(dH !== 18) {
+                    const sep = document.createElement('div');
+                    sep.className = 'mobile-time-sep';
+                    sep.textContent = `${dH}:00`;
+                    gridEl.appendChild(sep);
+                }
+                lastHour = currentH;
+            }
+            createCard(act, gridEl, true);
+        });
+    } else {
+        dayActs.forEach(act => { createCard(act, gridEl, false); });
+    }
+}
+
+function createCard(act, container, isMobile) {
+    const el = document.createElement('div');
+    const actId = getActId(act);
+    const isSecret = act.stage === 'GALLERY' && act.artist.includes('SECRET');
+    
+    el.className = `card ${favorites.includes(actId) ? 'is-fav' : ''}`;
+    el.setAttribute('data-stage', act.stage);
+    
+    const startMin = getMinutesFromStart(act.start);
+    const endMin = getMinutesFromStart(act.end);
+    const duration = endMin - startMin;
+
+    if(!isMobile) {
+        const stageIndex = stages.indexOf(act.stage);
+        const numberOfStages = stages.length;
+        el.style.left = `calc(60px + ((100% - 60px) / ${numberOfStages} * ${stageIndex}))`;
+        el.style.width = `calc((100% - 60px) / ${numberOfStages})`;
+        el.style.top = `${startMin * pxPerMin}px`;
+        
+        // GAP FIX: Subtract 2px to create breathing room between stacked cards
+        el.style.height = `${Math.max((duration * pxPerMin) - 2, 20)}px`;
+    } else {
+        el.innerHTML += `<div class="mobile-stage-tag">${act.stage}</div>`;
+    }
+
+    if(!isSecret) el.innerHTML += `<div class="card-artist">${act.artist}</div>`;
+    el.innerHTML += `<div class="card-time">${act.start} - ${act.end}</div>`;
+
+    el.onclick = () => toggleFav(act, el);
+    container.appendChild(el);
+}
+
+function toggleFav(act, el) {
+    const actId = getActId(act);
+    if(favorites.includes(actId)) {
+        favorites = favorites.filter(f => f !== actId);
+        el.classList.remove('is-fav');
+        gsap.to(el, { scale: 1, duration: 0.3, ease: "power2.out" });
+    } else {
+        favorites.push(actId);
+        el.classList.add('is-fav');
+        gsap.fromTo(el, { scale: 0.9 }, { scale: 0.95, duration: 0.4, ease: "elastic.out(1, 0.4)" });
+    }
+    localStorage.setItem('rvl_21_favs', JSON.stringify(favorites));
+}
+
+function resetRoute() {
+    if(confirm("¿REINICIAR?")) {
+        favorites = [];
+        localStorage.setItem('rvl_21_favs', JSON.stringify([]));
+        initGrid();
+    }
+}
+
+function printRoute() {
+    const area = document.getElementById('print-area');
+    area.innerHTML = ''; 
+    const myActs = schedule.filter(s => favorites.includes(getActId(s)));
+    if(myActs.length === 0) { alert("SELECCIONA ARTISTAS"); return; }
+
+    const dOrder = {"VIERNES":1, "SABADO":2, "DOMINGO":3};
+    myActs.sort((a,b) => {
+        if(dOrder[a.day] !== dOrder[b.day]) return dOrder[a.day] - dOrder[b.day];
+        return getMinutesFromStart(a.start) - getMinutesFromStart(b.start);
+    });
+
+    const clashSet = new Set();
+    for (let i = 0; i < myActs.length; i++) {
+        for (let j = i + 1; j < myActs.length; j++) {
+            const act1 = myActs[i];
+            const act2 = myActs[j];
+            if (act1.day === act2.day) {
+                const s1 = getMinutesFromStart(act1.start);
+                const e1 = getMinutesFromStart(act1.end);
+                const s2 = getMinutesFromStart(act2.start);
+                const e2 = getMinutesFromStart(act2.end);
+                if (s1 < e2 && s2 < e1) { clashSet.add(getActId(act1)); clashSet.add(getActId(act2)); }
+            }
+        }
+    }
+
+    area.innerHTML = `
+        <div class="print-header">
+            <div>
+                <div class="print-title">RIVERLAND 2025</div>
+                <div class="print-legend">
+                    <span class="legend-box" style="background:var(--color-valle) !important"></span> VALLE
+                    <span class="legend-box" style="background:var(--color-bosque) !important"></span> BOSQUE
+                    <span class="legend-box" style="background:var(--color-carpa) !important"></span> CARPA
+                    <span class="legend-box" style="background:var(--color-gallery) !important"></span> GALLERY
+                </div>
+            </div>
+            <div style="font-weight:900;">MI RUTA</div>
+        </div>
+    `;
+
+    let currentDay = '';
+    let dayBlock = null;
+    const colorMap = { "EL VALLE": "var(--color-valle)", "EL BOSQUE": "var(--color-bosque)", "LA CARPA": "var(--color-carpa)", "GALLERY": "var(--color-gallery)" };
+
+    myActs.forEach(act => {
+        if(act.day !== currentDay) {
+            if(dayBlock) area.appendChild(dayBlock);
+            dayBlock = document.createElement('div');
+            dayBlock.className = 'print-day-block';
+            dayBlock.innerHTML = `<div class="print-day-title">${act.day}</div>`;
+            currentDay = act.day;
+        }
+        const isClash = clashSet.has(getActId(act));
+        const rowClass = isClash ? 'print-item has-clash' : 'print-item';
+        dayBlock.innerHTML += `
+            <div class="${rowClass}">
+                <div class="print-time">${act.start} - ${act.end}</div>
+                <div class="print-stage">
+                    <span class="print-stage-tag" style="background-color:${colorMap[act.stage] || '#ccc'} !important">${act.stage}</span>
+                </div>
+                <div class="print-artist">${act.artist}</div>
+                ${isClash ? '<span class="clash-badge">⚠️ SOLAPE</span>' : ''}
+            </div>
+        `;
+    });
+    if(dayBlock) area.appendChild(dayBlock);
+    setTimeout(() => window.print(), 50);
+}
+
+function initWebGL() {
+    const canvas = document.getElementById('canvas-webgl');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    camera.position.z = 4;
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    const geometry = new THREE.SphereGeometry(1.6, 24, 24);
+    const material = new THREE.MeshBasicMaterial({ color: document.body.getAttribute('data-theme') === 'light' ? 0x000000 : 0xffffff, wireframe: true, transparent: true, opacity: 0.1 });
+    const shape = new THREE.Mesh(geometry, material);
+    scene.add(shape);
+
+    let mouseX = 0, mouseY = 0;
+    let targetX = 0, targetY = 0;
+    window.addEventListener('mousemove', (e) => {
+        targetX = (e.clientX / window.innerWidth) * 2 - 1;
+        targetY = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        material.color.setHex(document.body.getAttribute('data-theme') === 'light' ? 0x000000 : 0xffffff);
+        mouseX += (targetX - mouseX) * 0.05;
+        mouseY += (targetY - mouseY) * 0.05;
+        shape.rotation.y += 0.002;
+        shape.rotation.x = mouseY * 0.2;
+        shape.rotation.z = mouseX * 0.2;
+        renderer.render(scene, camera);
+    }
+    animate();
+    window.addEventListener('resize', () => {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+    });
+}
+</script>
+</body>
 </html>
